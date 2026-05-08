@@ -1,0 +1,23 @@
+# Secrets
+.env
+
+# n8n Docker volume data
+n8n_data/
+
+# Receipt downloads (local temp)
+receipts/
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/settings.json
+*.swp
+
+# Google credentials (NEVER commit this)
+setup/google-credentials.json
