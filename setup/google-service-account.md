@@ -1,8 +1,10 @@
-# Google API Setup — Service Account
+# Google API Setup — Get Your Service Account Key
 
-This guide walks you through creating a service account that lets n8n read/write your Google Sheets and Google Drive without OAuth pop-ups.
+This guide gets you a `google-credentials.json` file. The setup wizard uses this file to create and manage your Google Sheet and Drive folder automatically — you don't need to do anything in Google Sheets yourself.
 
 **Time needed:** ~10 minutes
+
+> **Stop at Step 5.** The setup wizard handles everything after that (creating the sheet, sharing it, etc.) automatically.
 
 ---
 
@@ -54,61 +56,22 @@ This guide walks you through creating a service account that lets n8n read/write
 1. In the Credentials page, click on `fintrak-automation` in the service accounts list
 2. Go to the **"Keys"** tab
 3. Click **"Add Key"** → **"Create new key"** → **JSON** → **"Create"**
-4. A `.json` file downloads automatically
-5. Rename it to `google-credentials.json`
-6. Move it to: `C:\Rupalprojects\Fintrak\setup\google-credentials.json`
+4. A `.json` file downloads automatically — this is your `google-credentials.json`
+5. **Save it somewhere you can easily find it** (Desktop is fine)
 
-> **IMPORTANT:** This file contains your private key. It is in `.gitignore` and will never be committed. Never share it.
+> **Keep this file private.** It gives access to your Google account. Never share it or upload it anywhere.
 
-Open the file and find the `client_email` field. It looks like:
-```
-fintrak-automation@fintrak-123456.iam.gserviceaccount.com
-```
-**Copy this email address** — you'll need it in Steps 6 and 7.
+**You're done with Google setup.** Go back to the README and continue the setup wizard — it will ask you for the path to this file and handle everything else automatically.
 
 ---
 
-## Step 6: Share Google Sheet with Service Account
+## What the setup wizard does automatically (you don't need to do this)
 
-1. Open your **Fintrak Expenses** spreadsheet
-2. Click **"Share"** (top-right green button)
-3. Paste the `client_email` from Step 5
-4. Set permission to **"Editor"**
-5. **Uncheck "Notify people"**
-6. Click **"Share"**
-
----
-
-## Step 7: Share Google Drive Folder with Service Account
-
-1. Go to https://drive.google.com
-2. Open your **Fintrak/Receipts** folder
-3. Right-click the folder → **"Share"**
-4. Paste the same `client_email`
-5. Set permission to **"Editor"**
-6. Click **"Share"**
-
----
-
-## Step 8: Add Credentials to n8n
-
-Open n8n at http://localhost:5678.
-
-### For Google Sheets:
-1. Avatar (bottom-left) → **Credentials** → **"Add Credential"**
-2. Search for **"Google Sheets"** → select **"Google Sheets API"**
-3. Name: `Fintrak Google Sheets`
-4. Authentication: **"Service Account"**
-5. **Service Account Email:** paste the `client_email` from Step 5
-6. **Private Key:** open `google-credentials.json`, find `"private_key"`, copy the entire value including `-----BEGIN PRIVATE KEY-----` through `-----END PRIVATE KEY-----\n`
-7. Click **"Save"** — should show green checkmark
-
-### For Google Drive:
-1. **"Add Credential"** → search **"Google Drive"** → **"Google Drive API"**
-2. Name: `Fintrak Google Drive`
-3. Authentication: **"Service Account"**
-4. Same **Service Account Email** and **Private Key** as above
-5. Click **"Save"**
+For reference, the wizard will:
+- Create the "Fintrak Expenses" Google Sheet with 4 tabs and all formulas
+- Create the "Fintrak/Receipts" folder in your Google Drive
+- Share both with your personal Google email so you can access them
+- Connect everything to the automation engine
 
 ---
 
