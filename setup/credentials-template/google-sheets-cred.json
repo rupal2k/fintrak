@@ -1,0 +1,10 @@
+[
+  {
+    "name": "Fintrak Google Sheets",
+    "type": "googleSheetsServiceAccount",
+    "data": {
+      "email": "{{CLIENT_EMAIL}}",
+      "privateKey": "{{PRIVATE_KEY}}"
+    }
+  }
+]

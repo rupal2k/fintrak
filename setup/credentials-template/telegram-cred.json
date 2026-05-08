@@ -1,0 +1,9 @@
+[
+  {
+    "name": "Fintrak Telegram Bot",
+    "type": "telegramApi",
+    "data": {
+      "accessToken": "{{TELEGRAM_BOT_TOKEN}}"
+    }
+  }
+]

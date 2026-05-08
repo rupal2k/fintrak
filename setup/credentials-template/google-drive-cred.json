@@ -1,0 +1,10 @@
+[
+  {
+    "name": "Fintrak Google Drive",
+    "type": "googleDriveServiceAccount",
+    "data": {
+      "email": "{{CLIENT_EMAIL}}",
+      "privateKey": "{{PRIVATE_KEY}}"
+    }
+  }
+]
