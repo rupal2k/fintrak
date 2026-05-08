@@ -4,6 +4,9 @@
 
 No monthly fees. No app to buy. Works on any phone. Your data stays in your own Google account.
 
+<img width="2752" height="1536" alt="image" src="https://github.com/user-attachments/assets/3381fd84-aa8b-4ad4-95c5-d99ac2004bd2" />
+
+
 ---
 
 ## What does it do?
