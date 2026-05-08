@@ -16,38 +16,45 @@ You → Telegram (photo/text) → n8n → OCR.Space → Google Sheets + Drive
 ## Quick Start
 
 ### Prerequisites
-- Docker Desktop installed and running
-- Telegram account
-- Google account
 
-### Setup
+Before running setup, have these ready:
+
+| What | Where to get it |
+|------|----------------|
+| Docker Desktop (running) | [docker.com/get-started](https://www.docker.com/get-started) |
+| Google service account JSON key | [Google Cloud Console](https://console.cloud.google.com) → IAM → Service Accounts → Keys (enable Sheets + Drive APIs first — see `setup/google-service-account.md`) |
+| Telegram bot token | `@BotFather` in Telegram → `/newbot` |
+| Telegram chat ID | `@userinfobot` in Telegram |
+| OCR.Space API key | [ocr.space/ocrapi](https://ocr.space/ocrapi) (free, no credit card) |
+
+### Setup (Automated — Recommended)
 
 1. Clone this repo:
-   ```
+   ```bash
    git clone https://github.com/rupal2k/fintrak.git
    cd fintrak
    ```
 
-2. Copy env template and fill in your values:
-   ```
-   cp .env.example .env
-   ```
-   See `setup/google-service-account.md` for how to get Google credentials.
+2. Run the setup wizard:
 
-3. Start n8n:
-   ```
-   docker compose up -d
+   **Windows:**
+   ```powershell
+   .\setup.ps1
    ```
 
-4. Open http://localhost:5678 (admin / your N8N_PASSWORD)
+   **Mac/Linux:**
+   ```bash
+   chmod +x setup.sh && ./setup.sh
+   ```
 
-5. Import all 4 workflows from `n8n-workflows/` folder
+The wizard collects your credentials, starts n8n, creates the Google Sheet and Drive folder, and activates all 4 workflows automatically. Takes ~2–3 minutes.
 
-6. Add credentials in n8n (Telegram, Google Sheets, Google Drive)
+### Setup (Manual — Alternative)
 
-7. Add environment variables in n8n Settings → Variables
-
-8. Activate all workflows
+If you prefer to configure services yourself, follow the step-by-step guides in `setup/`:
+- `setup/google-service-account.md` — Google API credentials
+- `setup/sheets-schema.md` — Google Sheets structure
+- Then: `docker compose up -d` → open http://localhost:5678 → import workflows manually
 
 ## Usage
 
@@ -77,17 +84,21 @@ You → Telegram (photo/text) → n8n → OCR.Space → Google Sheets + Drive
 
 ```
 fintrak/
+├── setup.ps1                   # Windows setup wizard (run this first)
+├── setup.sh                    # Mac/Linux setup wizard (run this first)
 ├── docker-compose.yml          # n8n container
 ├── .env.example                # Environment template
-├── n8n-workflows/              # Import these into n8n
-│   ├── workflow-a-receipt.json # Photo processor
-│   ├── workflow-b-text.json    # Text entry
-│   ├── workflow-c-commands.json # /summary /search /report
-│   └── workflow-d-daily-cron.json # 9 PM daily summary
+├── n8n-workflows/
+│   ├── workflow-a-receipt.json     # Photo processor
+│   ├── workflow-b-text.json        # Text entry
+│   ├── workflow-c-commands.json    # /summary /search /report
+│   ├── workflow-d-daily-cron.json  # 9 PM daily summary
+│   └── workflow-setup.json         # One-time provisioning (auto-deleted after setup)
 └── setup/
-    ├── sheets-schema.md        # Google Sheets column guide
-    ├── categorization-rules.md # Expense category keywords
-    └── google-service-account.md # Google API setup guide
+    ├── credentials-template/       # n8n credential templates (placeholders only)
+    ├── sheets-schema.md            # Google Sheets column guide
+    ├── categorization-rules.md     # Expense category keywords
+    └── google-service-account.md   # Google API setup guide
 ```
 
 ## Future Phases
