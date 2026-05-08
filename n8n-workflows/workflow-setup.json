@@ -1,0 +1,209 @@
+{
+  "name": "Fintrak Setup - Provision Google Resources",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "fintrak-setup"
+      },
+      "id": "webhook-in",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "title": "Fintrak Expenses",
+        "credential": "googleSheetsServiceAccount"
+      },
+      "id": "create-sheet",
+      "name": "Create Google Sheet",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 2,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "sheetId": "={{ $node[\"create-sheet\"].json.spreadsheetId }}",
+        "title": "Expenses"
+      },
+      "id": "create-expenses-tab",
+      "name": "Create Expenses Tab",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 2,
+      "position": [650, 200]
+    },
+    {
+      "parameters": {
+        "sheetId": "={{ $node[\"create-sheet\"].json.spreadsheetId }}",
+        "title": "Categories"
+      },
+      "id": "create-categories-tab",
+      "name": "Create Categories Tab",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 2,
+      "position": [650, 300]
+    },
+    {
+      "parameters": {
+        "sheetId": "={{ $node[\"create-sheet\"].json.spreadsheetId }}",
+        "title": "Summary"
+      },
+      "id": "create-summary-tab",
+      "name": "Create Summary Tab",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 2,
+      "position": [650, 400]
+    },
+    {
+      "parameters": {
+        "sheetId": "={{ $node[\"create-sheet\"].json.spreadsheetId }}",
+        "title": "Config"
+      },
+      "id": "create-config-tab",
+      "name": "Create Config Tab",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 2,
+      "position": [650, 500]
+    },
+    {
+      "parameters": {
+        "folderName": "Fintrak/Receipts",
+        "credential": "googleDriveServiceAccount"
+      },
+      "id": "create-drive-folder",
+      "name": "Create Drive Folder",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 2,
+      "position": [850, 300]
+    },
+    {
+      "parameters": {
+        "fileId": "={{ $node[\"create-sheet\"].json.spreadsheetId }}",
+        "emailAddress": "={{ $node[\"webhook-in\"].json.body.userEmail }}",
+        "role": "editor",
+        "sendNotification": false,
+        "credential": "googleDriveServiceAccount"
+      },
+      "id": "share-sheet",
+      "name": "Share Sheet with User",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 2,
+      "position": [850, 400]
+    },
+    {
+      "parameters": {
+        "folderId": "={{ $node[\"create-drive-folder\"].json.id }}",
+        "emailAddress": "={{ $node[\"webhook-in\"].json.body.userEmail }}",
+        "role": "editor",
+        "sendNotification": false,
+        "credential": "googleDriveServiceAccount"
+      },
+      "id": "share-folder",
+      "name": "Share Folder with User",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 2,
+      "position": [850, 500]
+    },
+    {
+      "parameters": {
+        "statusCode": 200,
+        "responseBody": "{\"sheetId\": \"={{ $node[\"create-sheet\"].json.spreadsheetId }}\", \"driveFolderId\": \"={{ $node[\"create-drive-folder\"].json.id }}\"}"
+      },
+      "id": "webhook-response",
+      "name": "Return Result",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1050, 300]
+    }
+  ],
+  "connections": {
+    "webhook-in": {
+      "main": [
+        [
+          {
+            "node": "create-sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "create-sheet": {
+      "main": [
+        [
+          {
+            "node": "create-expenses-tab",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "create-categories-tab",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "create-summary-tab",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "create-config-tab",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "create-drive-folder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "create-expenses-tab": {
+      "main": [
+        [
+          {
+            "node": "share-sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "create-drive-folder": {
+      "main": [
+        [
+          {
+            "node": "share-folder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "share-sheet": {
+      "main": [
+        [
+          {
+            "node": "webhook-response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "share-folder": {
+      "main": [
+        [
+          {
+            "node": "webhook-response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false
+}
