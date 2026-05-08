@@ -37,9 +37,14 @@ Before running setup, have these ready:
 
 2. Run the setup wizard:
 
-   **Windows:**
+   **Windows (PowerShell):**
    ```powershell
    .\setup.ps1
+   ```
+
+   **Windows (Git Bash / double-click):**
+   ```bat
+   setup.bat
    ```
 
    **Mac/Linux:**

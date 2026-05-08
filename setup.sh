@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Fintrak Setup Wizard - Mac/Linux
+# Fintrak Setup Wizard - Windows (Git Bash / WSL) + Mac + Linux
 # Runs all 5 deployment phases automatically.
 # Re-runnable: skips already-completed phases.
 
@@ -8,15 +8,31 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ENV_PATH="$SCRIPT_DIR/.env"
 
+# ── OS detection ────────────────────────────────────────────────────────────
+case "$OSTYPE" in
+    msys*|cygwin*|win32*) IS_WINDOWS=true ;;
+    *)                    IS_WINDOWS=false ;;
+esac
+
+# ── Python detection (python3 vs python on Windows) ─────────────────────────
+if command -v python3 &>/dev/null; then
+    PYTHON=python3
+elif command -v python &>/dev/null && python -c "import sys; assert sys.version_info[0]==3" 2>/dev/null; then
+    PYTHON=python
+else
+    echo "Python 3 is required. Install from python.org and re-run."
+    exit 1
+fi
+
 # ── Colors ──────────────────────────────────────────────────────────────────
 GREEN='\033[0;32m'; RED='\033[0;31m'; CYAN='\033[0;36m'
 YELLOW='\033[1;33m'; MAGENTA='\033[0;35m'; NC='\033[0m'
 
-write_success() { echo -e "${GREEN}✓ $1${NC}"; }
-write_fail()    { echo -e "${RED}✗ $1${NC}"; }
-write_info()    { echo -e "${CYAN}  $1${NC}"; }
-write_warn()    { echo -e "${YELLOW}⚠ $1${NC}"; }
-write_phase()   { echo -e "\n${MAGENTA}══ $1 ══${NC}"; }
+write_success() { printf "${GREEN}✓ %s${NC}\n" "$1"; }
+write_fail()    { printf "${RED}✗ %s${NC}\n" "$1"; }
+write_info()    { printf "${CYAN}  %s${NC}\n" "$1"; }
+write_warn()    { printf "${YELLOW}⚠ %s${NC}\n" "$1"; }
+write_phase()   { printf "\n${MAGENTA}══ %s ══${NC}\n" "$1"; }
 
 # ── Banner ───────────────────────────────────────────────────────────────────
 echo ""
@@ -53,7 +69,9 @@ write_env() {
 
 n8n_auth_header() {
     local pass="$1"
-    echo "Authorization: Basic $(echo -n "admin:$pass" | base64)"
+    local b64
+    b64=$($PYTHON -c "import base64; print(base64.b64encode(b'admin:$pass').decode())")
+    echo "Authorization: Basic $b64"
 }
 
 wait_n8n_healthy() {
@@ -115,7 +133,7 @@ validate_password() {
 validate_json_path() {
     local p="${1/#\~/$HOME}"
     [ ! -f "$p" ] && echo "File not found: $p" && return
-    python3 -c "
+    $PYTHON -c "
 import json, sys
 try:
     d = json.load(open('$p'))
@@ -124,7 +142,7 @@ try:
     else:
         print('')
 except Exception as e:
-    print(f'Invalid JSON: {e}')
+    print('Invalid JSON: {}'.format(e))
 " 2>/dev/null
 }
 
@@ -184,8 +202,8 @@ else
             write_fail "$err"
             continue
         fi
-        GOOGLE_CLIENT_EMAIL=$(python3 -c "import json; print(json.load(open('$json_path'))['client_email'])")
-        GOOGLE_PRIVATE_KEY=$(python3 -c "import json; print(json.load(open('$json_path'))['private_key'])")
+        GOOGLE_CLIENT_EMAIL=$($PYTHON -c "import json; print(json.load(open('$json_path'))['client_email'])")
+        GOOGLE_PRIVATE_KEY=$($PYTHON -c "import json; print(json.load(open('$json_path'))['private_key'])")
         write_success "Google credentials validated"
         break
     done
@@ -245,8 +263,8 @@ AUTH_HEADER=$(n8n_auth_header "$N8N_PASSWORD")
 write_phase "Phase 3: Configuring Google Credentials"
 
 creds_response=$(curl -sf -H "$AUTH_HEADER" http://localhost:5678/rest/credentials 2>/dev/null || echo '{"data":[]}')
-sheets_exists=$(echo "$creds_response" | python3 -c "import json,sys; d=json.load(sys.stdin); print('yes' if any(c['name']=='Fintrak Google Sheets' for c in d.get('data',[])) else '')" 2>/dev/null)
-drive_exists=$(echo "$creds_response"  | python3 -c "import json,sys; d=json.load(sys.stdin); print('yes' if any(c['name']=='Fintrak Google Drive'  for c in d.get('data',[])) else '')" 2>/dev/null)
+sheets_exists=$(echo "$creds_response" | $PYTHON -c"import json,sys; d=json.load(sys.stdin); print('yes' if any(c['name']=='Fintrak Google Sheets' for c in d.get('data',[])) else '')" 2>/dev/null)
+drive_exists=$(echo "$creds_response"  | $PYTHON -c"import json,sys; d=json.load(sys.stdin); print('yes' if any(c['name']=='Fintrak Google Drive'  for c in d.get('data',[])) else '')" 2>/dev/null)
 
 if [ -n "$sheets_exists" ] && [ -n "$drive_exists" ]; then
     write_success "Phase 3 already complete — skipping"
@@ -288,7 +306,7 @@ else
 
     # Find and activate the setup workflow
     all_wfs=$(curl -sf -H "$AUTH_HEADER" http://localhost:5678/rest/workflows 2>/dev/null || echo '{"data":[]}')
-    setup_wf_id=$(echo "$all_wfs" | python3 -c "
+    setup_wf_id=$(echo "$all_wfs" | $PYTHON -c"
 import json, sys
 data = json.load(sys.stdin).get('data', [])
 match = [w for w in data if 'Provision Google' in w.get('name', '')]
@@ -309,8 +327,8 @@ print(match[0]['id'] if match else '')
         -d "{\"userEmail\":\"${GOOGLE_USER_EMAIL}\",\"sheetName\":\"Fintrak Expenses\",\"driveFolderName\":\"Fintrak/Receipts\"}" \
         http://localhost:5678/webhook/fintrak-setup 2>/dev/null || echo '{}')
 
-    GOOGLE_SHEET_ID=$(echo "$result" | python3 -c "import json,sys; print(json.load(sys.stdin).get('sheetId',''))" 2>/dev/null)
-    GOOGLE_DRIVE_FOLDER_ID=$(echo "$result" | python3 -c "import json,sys; print(json.load(sys.stdin).get('driveFolderId',''))" 2>/dev/null)
+    GOOGLE_SHEET_ID=$(echo "$result" | $PYTHON -c"import json,sys; print(json.load(sys.stdin).get('sheetId',''))" 2>/dev/null)
+    GOOGLE_DRIVE_FOLDER_ID=$(echo "$result" | $PYTHON -c"import json,sys; print(json.load(sys.stdin).get('driveFolderId',''))" 2>/dev/null)
 
     if [ -z "$GOOGLE_SHEET_ID" ] || [ -z "$GOOGLE_DRIVE_FOLDER_ID" ]; then
         write_fail "Setup workflow did not return Sheet ID or Folder ID"
@@ -321,10 +339,17 @@ print(match[0]['id'] if match else '')
     write_success "Google Sheet created: $GOOGLE_SHEET_ID"
     write_success "Drive folder created: $GOOGLE_DRIVE_FOLDER_ID"
 
-    # Update .env with IDs
-    sed -i.bak "s|^GOOGLE_SHEET_ID=.*|GOOGLE_SHEET_ID=${GOOGLE_SHEET_ID}|" "$ENV_PATH"
-    sed -i.bak "s|^GOOGLE_DRIVE_FOLDER_ID=.*|GOOGLE_DRIVE_FOLDER_ID=${GOOGLE_DRIVE_FOLDER_ID}|" "$ENV_PATH"
-    rm -f "$ENV_PATH.bak"
+    # Update .env with IDs (use Python for cross-platform in-place edit)
+    $PYTHON - "$ENV_PATH" "$GOOGLE_SHEET_ID" "$GOOGLE_DRIVE_FOLDER_ID" << 'PYEOF'
+import sys, re
+path, sheet_id, folder_id = sys.argv[1], sys.argv[2], sys.argv[3]
+with open(path, 'r') as f:
+    content = f.read()
+content = re.sub(r'^GOOGLE_SHEET_ID=.*$',        'GOOGLE_SHEET_ID='        + sheet_id,  content, flags=re.MULTILINE)
+content = re.sub(r'^GOOGLE_DRIVE_FOLDER_ID=.*$', 'GOOGLE_DRIVE_FOLDER_ID=' + folder_id, content, flags=re.MULTILINE)
+with open(path, 'w') as f:
+    f.write(content)
+PYEOF
 
     # Cleanup setup workflow
     curl -sf -X POST -H "$AUTH_HEADER" "http://localhost:5678/rest/workflows/$setup_wf_id/deactivate" >/dev/null 2>&1 || true
@@ -338,7 +363,7 @@ fi
 write_phase "Phase 5: Activating Workflows"
 
 all_wfs=$(curl -sf -H "$AUTH_HEADER" http://localhost:5678/rest/workflows 2>/dev/null || echo '{"data":[]}')
-active_count=$(echo "$all_wfs" | python3 -c "
+active_count=$(echo "$all_wfs" | $PYTHON -c"
 import json, sys, re
 data = json.load(sys.stdin).get('data', [])
 print(sum(1 for w in data if w.get('active') and re.match(r'Fintrak [A-D]', w.get('name',''))))
@@ -387,7 +412,7 @@ else
 
     # Activate all 4
     all_wfs=$(curl -sf -H "$AUTH_HEADER" http://localhost:5678/rest/workflows 2>/dev/null || echo '{"data":[]}')
-    wf_ids=$(echo "$all_wfs" | python3 -c "
+    wf_ids=$(echo "$all_wfs" | $PYTHON -c"
 import json, sys, re
 data = json.load(sys.stdin).get('data', [])
 for w in data:
@@ -407,7 +432,7 @@ for w in data:
         -d "{\"chat_id\":\"${YOUR_TELEGRAM_CHAT_ID}\",\"text\":\"✅ Fintrak is live! Send me a receipt photo to get started.\"}" \
         "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" 2>/dev/null || echo '{}')
 
-    ok=$(echo "$tg_result" | python3 -c "import json,sys; print(json.load(sys.stdin).get('ok',''))" 2>/dev/null)
+    ok=$(echo "$tg_result" | $PYTHON -c"import json,sys; print(json.load(sys.stdin).get('ok',''))" 2>/dev/null)
     if [ "$ok" = "True" ]; then
         write_success "Test message sent"
     else
