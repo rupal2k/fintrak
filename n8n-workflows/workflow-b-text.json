@@ -1,0 +1,162 @@
+{
+  "name": "Fintrak B - Text Entry Processor",
+  "nodes": [
+    {
+      "parameters": {
+        "updates": ["message"],
+        "additionalFields": {}
+      },
+      "id": "telegram-trigger-b",
+      "name": "Telegram Trigger",
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1,
+      "position": [240, 300],
+      "credentials": {
+        "telegramApi": { "name": "Fintrak Telegram Bot" }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "conditions": [
+            {
+              "leftValue": "={{ $json.message.chat.id.toString() }}",
+              "rightValue": "={{ $vars.YOUR_TELEGRAM_CHAT_ID }}",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "guard-b",
+      "name": "Guard: Only My Chat",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "conditions": [
+            {
+              "leftValue": "={{ $json.message.text }}",
+              "rightValue": "",
+              "operator": { "type": "string", "operation": "exists", "singleValue": true }
+            },
+            {
+              "leftValue": "={{ $json.message.text }}",
+              "rightValue": "/",
+              "operator": { "type": "string", "operation": "startsWith", "not": true }
+            },
+            {
+              "leftValue": "={{ $json.message.photo }}",
+              "rightValue": "",
+              "operator": { "type": "string", "operation": "notExists", "singleValue": true }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "is-text-entry",
+      "name": "Is Text Entry?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const text = ($input.item.json.message?.text || '').trim();\n\n// Check business prefix\nconst forceBusiness = text.toLowerCase().startsWith('b:');\nconst cleanText = forceBusiness ? text.substring(2).trim() : text;\n\n// Extract payment method if first word matches known methods\nconst methodWords = ['cash','upi','card','neft','rtgs','cheque','gpay','paytm','phonepe'];\nconst words = cleanText.split(/\\s+/);\nlet paymentMethod = 'UPI';\nlet remaining = cleanText;\nif (methodWords.includes(words[0].toLowerCase())) {\n  const methodMap = { cash: 'Cash', upi: 'UPI', card: 'Card', neft: 'NEFT', rtgs: 'RTGS', cheque: 'Cheque', gpay: 'UPI', paytm: 'UPI', phonepe: 'UPI' };\n  paymentMethod = methodMap[words[0].toLowerCase()] || 'UPI';\n  remaining = words.slice(1).join(' ');\n}\n\n// Extract amount — first number found in remaining\nconst amountMatch = remaining.match(/([\\d,]+(?:\\.\\d{2})?)/);\nconst amount = amountMatch ? parseFloat(amountMatch[1].replace(/,/g, '')) : 0;\n\n// Everything after the amount is merchant + notes\nconst afterAmount = remaining.replace(amountMatch?.[0] || '', '').trim();\nconst afterWords = afterAmount.split(/\\s+/);\nconst merchant = afterWords.slice(0, 2).join(' ') || 'Unknown';\nconst notes = afterWords.slice(2).join(' ') || '';\n\nreturn [{ json: {\n  amount,\n  date: new Date().toISOString().split('T')[0],\n  merchant,\n  paymentMethod,\n  userNote: forceBusiness ? 'b:' + notes : notes,\n  forceBusiness,\n  rawText: text,\n  driveLink: '',\n  ocrSuccess: true\n} }];"
+      },
+      "id": "parse-text",
+      "name": "Parse Text Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 240]
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.item.json;\nconst text = (input.rawText + ' ' + input.merchant).toLowerCase();\nconst userNote = (input.userNote || '').toLowerCase();\nconst forceBusiness = input.forceBusiness;\n\nconst rules = [\n  { category: 'Food & Drink', type: 'Personal', keywords: ['zomato','swiggy','starbucks','cafe','restaurant','biryani','pizza','food','eat','dominos','mcdonald','kfc','burger','dine'] },\n  { category: 'Transport', type: 'Personal', keywords: ['uber','ola','rapido','petrol','fuel','toll','parking','auto','cab','rickshaw','metro'] },\n  { category: 'Shopping', type: 'Personal', keywords: ['amazon','flipkart','myntra','mall','store','shop','meesho','retail'] },\n  { category: 'Bills & Utilities', type: 'Personal', keywords: ['electricity','water','broadband','jio','airtel','bsnl','recharge','bill','internet','wifi'] },\n  { category: 'Medical', type: 'Personal', keywords: ['pharmacy','hospital','doctor','clinic','medicine','apollo','medplus','health'] },\n  { category: 'Business - Software', type: 'Business', keywords: ['aws','notion','slack','zoom','adobe','subscription','saas','github','figma'] },\n  { category: 'Business - Travel', type: 'Business', keywords: ['flight','hotel','train ticket','business travel','airport'] },\n  { category: 'Business - Meals', type: 'Business', keywords: ['client lunch','vendor meeting','team lunch','business meal'] },\n  { category: 'Vendor Payment', type: 'Business', keywords: ['vendor','supplier','contractor','invoice','advance'] },\n  { category: 'Cash', type: 'Personal', keywords: ['atm','cash withdrawal'] },\n];\n\nlet category = 'Other';\nlet type = 'Personal';\n\nfor (const rule of rules) {\n  if (rule.keywords.some(kw => text.includes(kw) || userNote.includes(kw))) {\n    category = rule.category;\n    type = rule.type;\n    break;\n  }\n}\n\nif (forceBusiness) type = 'Business';\n\nreturn [{ json: { ...input, category, type } }];"
+      },
+      "id": "categorize-b",
+      "name": "Categorize",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1120, 240]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": { "__rl": true, "value": "={{ $vars.GOOGLE_SHEET_ID }}", "mode": "id" },
+        "sheetName": { "__rl": true, "value": "Expenses", "mode": "name" },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Date": "={{ $json.date }}",
+            "Merchant": "={{ $json.merchant }}",
+            "Amount": "={{ $json.amount }}",
+            "Currency": "INR",
+            "Category": "={{ $json.category }}",
+            "Type": "={{ $json.type }}",
+            "Payment Method": "={{ $json.paymentMethod }}",
+            "Notes": "={{ $json.userNote }}",
+            "Receipt URL": "",
+            "Source": "Telegram Text",
+            "Raw OCR": "",
+            "Timestamp": "={{ $now.toISO() }}"
+          }
+        },
+        "options": {}
+      },
+      "id": "save-to-sheets-b",
+      "name": "Save to Sheets",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.4,
+      "position": [1340, 240],
+      "credentials": {
+        "googleSheetsOAuth2Api": { "name": "Fintrak Google Sheets" }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Telegram Trigger').item.json.message.chat.id }}",
+        "text": "=✅ *Logged!*\n\n🏪 *{{ $('Categorize').item.json.merchant }}* — ₹{{ $('Categorize').item.json.amount }}\n📂 {{ $('Categorize').item.json.category }} | 🏷️ {{ $('Categorize').item.json.type }}",
+        "additionalFields": { "parse_mode": "Markdown" }
+      },
+      "id": "reply-logged",
+      "name": "Reply: Logged",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [1560, 240],
+      "credentials": {
+        "telegramApi": { "name": "Fintrak Telegram Bot" }
+      }
+    }
+  ],
+  "connections": {
+    "Telegram Trigger": {
+      "main": [[{ "node": "Guard: Only My Chat", "type": "main", "index": 0 }]]
+    },
+    "Guard: Only My Chat": {
+      "main": [
+        [{ "node": "Is Text Entry?", "type": "main", "index": 0 }],
+        []
+      ]
+    },
+    "Is Text Entry?": {
+      "main": [
+        [{ "node": "Parse Text Input", "type": "main", "index": 0 }],
+        []
+      ]
+    },
+    "Parse Text Input": {
+      "main": [[{ "node": "Categorize", "type": "main", "index": 0 }]]
+    },
+    "Categorize": {
+      "main": [[{ "node": "Save to Sheets", "type": "main", "index": 0 }]]
+    },
+    "Save to Sheets": {
+      "main": [[{ "node": "Reply: Logged", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": { "executionOrder": "v1" }
+}

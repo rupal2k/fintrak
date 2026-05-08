@@ -1,0 +1,308 @@
+{
+  "name": "Fintrak A - Receipt Photo Processor",
+  "nodes": [
+    {
+      "parameters": {
+        "updates": ["message"],
+        "additionalFields": {}
+      },
+      "id": "telegram-trigger",
+      "name": "Telegram Trigger",
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1,
+      "position": [240, 300],
+      "credentials": {
+        "telegramApi": {
+          "name": "Fintrak Telegram Bot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "chat-id-check",
+              "leftValue": "={{ $json.message.chat.id.toString() }}",
+              "rightValue": "={{ $vars.YOUR_TELEGRAM_CHAT_ID }}",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "guard-chat-id",
+      "name": "Guard: Only My Chat",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "conditions": [
+            {
+              "id": "has-photo",
+              "leftValue": "={{ $json.message.photo }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "check-has-photo",
+      "name": "Has Photo?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [680, 240]
+    },
+    {
+      "parameters": {
+        "resource": "file",
+        "operation": "get",
+        "fileId": "={{ $json.message.photo[$json.message.photo.length - 1].file_id }}"
+      },
+      "id": "get-file-info",
+      "name": "Get File Info",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [900, 180],
+      "credentials": {
+        "telegramApi": {
+          "name": "Fintrak Telegram Bot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "=https://api.telegram.org/file/bot{{ $vars.TELEGRAM_BOT_TOKEN }}/{{ $json.result.file_path }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "id": "download-image",
+      "name": "Download Image",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1120, 180]
+    },
+    {
+      "parameters": {
+        "operation": "upload",
+        "name": "={{ $now.format('YYYYMMDD-HHmmss') }}-receipt.jpg",
+        "driveId": {
+          "__rl": true,
+          "value": "My Drive",
+          "mode": "list"
+        },
+        "folderId": {
+          "__rl": true,
+          "value": "={{ $vars.GOOGLE_DRIVE_FOLDER_ID }}",
+          "mode": "id"
+        },
+        "options": {}
+      },
+      "id": "upload-to-drive",
+      "name": "Upload to Drive",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [1340, 180],
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "name": "Fintrak Google Drive"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.ocr.space/parse/image",
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $vars.OCR_SPACE_API_KEY }}"
+            },
+            {
+              "name": "OCREngine",
+              "value": "2"
+            },
+            {
+              "name": "isTable",
+              "value": "true"
+            },
+            {
+              "name": "language",
+              "value": "eng"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "ocr-extract",
+      "name": "OCR Extract Text",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1560, 180]
+    },
+    {
+      "parameters": {
+        "jsCode": "const driveFileId = $('Upload to Drive').item.json.id;\nconst driveLink = `https://drive.google.com/file/d/${driveFileId}/view`;\nconst ocrResponse = $input.item.json;\nconst rawText = ocrResponse.ParsedResults?.[0]?.ParsedText || '';\nconst lines = rawText.split('\\n').map(l => l.trim()).filter(Boolean);\n\n// Extract amount — find all numbers, take the largest as total\nconst amountRegex = /(?:rs\\.?|inr|\\u20b9|total|amount)[\\s:]*([\\d,]+(?:\\.\\d{2})?)|([\\d,]{3,}(?:\\.\\d{2})?)/gi;\nconst amounts = [];\nlet m;\nwhile ((m = amountRegex.exec(rawText)) !== null) {\n  const val = parseFloat((m[1] || m[2]).replace(/,/g, ''));\n  if (!isNaN(val) && val > 0 && val < 1000000) amounts.push(val);\n}\nconst amount = amounts.length > 0 ? Math.max(...amounts) : 0;\n\n// Extract date\nconst dateRegex = /(\\d{1,2})[\\/\\-](\\d{1,2})[\\/\\-](\\d{2,4})/;\nconst dateMatch = rawText.match(dateRegex);\nlet date;\nif (dateMatch) {\n  const y = dateMatch[3].length === 2 ? '20' + dateMatch[3] : dateMatch[3];\n  date = `${y}-${dateMatch[2].padStart(2,'0')}-${dateMatch[1].padStart(2,'0')}`;\n} else {\n  date = new Date().toISOString().split('T')[0];\n}\n\n// Extract merchant — first meaningful line\nconst skipWords = ['gstin','gst','tax','invoice','receipt','bill','total','amount','date','thank','welcome'];\nlet merchant = 'Unknown';\nfor (const line of lines) {\n  const lower = line.toLowerCase();\n  const hasSkip = skipWords.some(w => lower.includes(w));\n  const hasDigit = /\\d{5,}/.test(line);\n  if (!hasSkip && !hasDigit && line.length > 2 && line.length < 50) {\n    merchant = line;\n    break;\n  }\n}\n\n// Extract payment method\nconst payMap = { upi: 'UPI', gpay: 'UPI', paytm: 'UPI', phonepe: 'UPI', cash: 'Cash', card: 'Card', credit: 'Card', debit: 'Card', neft: 'NEFT', rtgs: 'RTGS', cheque: 'Cheque' };\nlet paymentMethod = 'Unknown';\nconst lowerText = rawText.toLowerCase();\nfor (const [key, val] of Object.entries(payMap)) {\n  if (lowerText.includes(key)) { paymentMethod = val; break; }\n}\n\n// Get user's caption note if any\nconst userNote = $('Telegram Trigger').item.json.message?.caption || '';\n\nreturn [{ json: { amount, date, merchant, paymentMethod, userNote, driveLink, rawText, ocrSuccess: rawText.length > 10 } }];"
+      },
+      "id": "parse-ocr",
+      "name": "Parse OCR Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1780, 180]
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.item.json;\nconst text = (input.rawText + ' ' + input.merchant).toLowerCase();\nconst userNote = (input.userNote || '').toLowerCase();\nconst forceBusiness = userNote.startsWith('b:');\n\nconst rules = [\n  { category: 'Food & Drink', type: 'Personal', keywords: ['zomato','swiggy','starbucks','cafe','restaurant','biryani','pizza','food','eat','dominos','mcdonald','kfc','burger','dine'] },\n  { category: 'Transport', type: 'Personal', keywords: ['uber','ola','rapido','petrol','fuel','toll','parking','auto','cab','rickshaw','metro','bus fare','train fare'] },\n  { category: 'Shopping', type: 'Personal', keywords: ['amazon','flipkart','myntra','mall','store','shop','meesho','snapdeal','ajio','retail'] },\n  { category: 'Bills & Utilities', type: 'Personal', keywords: ['electricity','water','broadband','jio','airtel','bsnl','recharge','bill','internet','wifi','gas cylinder','piped gas'] },\n  { category: 'Medical', type: 'Personal', keywords: ['pharmacy','hospital','doctor','clinic','medicine','apollo','medplus','1mg','netmeds','health','dental','lab test'] },\n  { category: 'Business - Software', type: 'Business', keywords: ['aws','google cloud','notion','slack','zoom','adobe','subscription','saas','github','figma','canva','digitalocean','heroku'] },\n  { category: 'Business - Travel', type: 'Business', keywords: ['flight','hotel','train ticket','business travel','airport','business cab'] },\n  { category: 'Business - Meals', type: 'Business', keywords: ['client lunch','vendor meeting','team lunch','business meal','office lunch','client dinner'] },\n  { category: 'Business - Supplies', type: 'Business', keywords: ['office supplies','stationery','equipment','printer','laptop','monitor','business supplies'] },\n  { category: 'Vendor Payment', type: 'Business', keywords: ['vendor','supplier','contractor','invoice payment','advance payment'] },\n  { category: 'Cash', type: 'Personal', keywords: ['atm','cash withdrawal','cash advance'] },\n];\n\nlet category = 'Other';\nlet type = 'Personal';\n\nfor (const rule of rules) {\n  if (rule.keywords.some(kw => text.includes(kw) || userNote.includes(kw))) {\n    category = rule.category;\n    type = rule.type;\n    break;\n  }\n}\n\nif (forceBusiness) type = 'Business';\n\nreturn [{ json: { ...input, category, type } }];"
+      },
+      "id": "categorize",
+      "name": "Categorize",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2000, 180]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "={{ $vars.GOOGLE_SHEET_ID }}",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Expenses",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Date": "={{ $json.date }}",
+            "Merchant": "={{ $json.merchant }}",
+            "Amount": "={{ $json.amount }}",
+            "Currency": "INR",
+            "Category": "={{ $json.category }}",
+            "Type": "={{ $json.type }}",
+            "Payment Method": "={{ $json.paymentMethod }}",
+            "Notes": "={{ $json.userNote }}",
+            "Receipt URL": "={{ $json.driveLink }}",
+            "Source": "Telegram Photo",
+            "Raw OCR": "={{ $json.rawText.substring(0, 500) }}",
+            "Timestamp": "={{ $now.toISO() }}"
+          }
+        },
+        "options": {}
+      },
+      "id": "save-to-sheets",
+      "name": "Save to Sheets",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.4,
+      "position": [2220, 180],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "name": "Fintrak Google Sheets"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Telegram Trigger').item.json.message.chat.id }}",
+        "text": "=✅ *Saved!*\n\n🏪 *Merchant:* {{ $('Categorize').item.json.merchant }}\n💰 *Amount:* ₹{{ $('Categorize').item.json.amount }}\n📂 *Category:* {{ $('Categorize').item.json.category }}\n🏷️ *Type:* {{ $('Categorize').item.json.type }}\n💳 *Payment:* {{ $('Categorize').item.json.paymentMethod }}\n📅 *Date:* {{ $('Categorize').item.json.date }}\n\n_Not right? Correct manually in Google Sheets._",
+        "additionalFields": {
+          "parse_mode": "Markdown"
+        }
+      },
+      "id": "reply-success",
+      "name": "Reply: Saved",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [2440, 180],
+      "credentials": {
+        "telegramApi": {
+          "name": "Fintrak Telegram Bot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Telegram Trigger').item.json.message.chat.id }}",
+        "text": "⚠️ Unauthorized access attempt blocked.",
+        "additionalFields": {}
+      },
+      "id": "reply-unauthorized",
+      "name": "Reply: Unauthorized",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [680, 440],
+      "credentials": {
+        "telegramApi": {
+          "name": "Fintrak Telegram Bot"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Telegram Trigger": {
+      "main": [[{ "node": "Guard: Only My Chat", "type": "main", "index": 0 }]]
+    },
+    "Guard: Only My Chat": {
+      "main": [
+        [{ "node": "Has Photo?", "type": "main", "index": 0 }],
+        [{ "node": "Reply: Unauthorized", "type": "main", "index": 0 }]
+      ]
+    },
+    "Has Photo?": {
+      "main": [
+        [{ "node": "Get File Info", "type": "main", "index": 0 }],
+        []
+      ]
+    },
+    "Get File Info": {
+      "main": [[{ "node": "Download Image", "type": "main", "index": 0 }]]
+    },
+    "Download Image": {
+      "main": [[{ "node": "Upload to Drive", "type": "main", "index": 0 }]]
+    },
+    "Upload to Drive": {
+      "main": [[{ "node": "OCR Extract Text", "type": "main", "index": 0 }]]
+    },
+    "OCR Extract Text": {
+      "main": [[{ "node": "Parse OCR Result", "type": "main", "index": 0 }]]
+    },
+    "Parse OCR Result": {
+      "main": [[{ "node": "Categorize", "type": "main", "index": 0 }]]
+    },
+    "Categorize": {
+      "main": [[{ "node": "Save to Sheets", "type": "main", "index": 0 }]]
+    },
+    "Save to Sheets": {
+      "main": [[{ "node": "Reply: Saved", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

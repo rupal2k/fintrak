@@ -1,0 +1,76 @@
+{
+  "name": "Fintrak D - Daily 9PM Summary",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 21 * * *"
+            }
+          ]
+        }
+      },
+      "id": "cron-trigger",
+      "name": "Daily 9PM Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "operation": "read",
+        "documentId": { "__rl": true, "value": "={{ $vars.GOOGLE_SHEET_ID }}", "mode": "id" },
+        "sheetName": { "__rl": true, "value": "Expenses", "mode": "name" },
+        "filters": {},
+        "options": {}
+      },
+      "id": "read-today",
+      "name": "Read Expenses",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.4,
+      "position": [460, 300],
+      "credentials": {
+        "googleSheetsOAuth2Api": { "name": "Fintrak Google Sheets" }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const rows = $input.all();\nconst today = new Date().toISOString().split('T')[0];\n\nlet personalToday = 0, businessToday = 0;\nlet countToday = 0;\nconst topItems = [];\n\nfor (const row of rows) {\n  const r = row.json;\n  if (r.Date !== today || !r.Amount) continue;\n  const amt = parseFloat(r.Amount) || 0;\n  if (r.Type === 'Business') businessToday += amt;\n  else personalToday += amt;\n  countToday++;\n  topItems.push(`  • ${r.Merchant} ₹${amt.toFixed(0)} (${r.Category})`);\n}\n\nconst totalToday = personalToday + businessToday;\n\nlet msg;\nif (countToday === 0) {\n  msg = `📊 *Daily Summary — ${today}*\\n\\n✅ No expenses logged today!`;\n} else {\n  const itemLines = topItems.slice(0, 5).join('\\n');\n  msg = `📊 *Daily Summary — ${today}*\\n\\n${countToday} expense(s)\\n👤 Personal: ₹${personalToday.toFixed(0)}\\n💼 Business: ₹${businessToday.toFixed(0)}\\n💰 Total: ₹${totalToday.toFixed(0)}\\n\\n*Today:*\\n${itemLines}`;\n}\n\nreturn [{ json: { message: msg } }];"
+      },
+      "id": "build-daily",
+      "name": "Build Daily Summary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $vars.YOUR_TELEGRAM_CHAT_ID }}",
+        "text": "={{ $json.message }}",
+        "additionalFields": { "parse_mode": "Markdown" }
+      },
+      "id": "send-daily",
+      "name": "Send Daily Summary",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [900, 300],
+      "credentials": {
+        "telegramApi": { "name": "Fintrak Telegram Bot" }
+      }
+    }
+  ],
+  "connections": {
+    "Daily 9PM Trigger": {
+      "main": [[{ "node": "Read Expenses", "type": "main", "index": 0 }]]
+    },
+    "Read Expenses": {
+      "main": [[{ "node": "Build Daily Summary", "type": "main", "index": 0 }]]
+    },
+    "Build Daily Summary": {
+      "main": [[{ "node": "Send Daily Summary", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": { "executionOrder": "v1" }
+}

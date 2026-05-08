@@ -1,0 +1,254 @@
+{
+  "name": "Fintrak C - Command Handler",
+  "nodes": [
+    {
+      "parameters": {
+        "updates": ["message"],
+        "additionalFields": {}
+      },
+      "id": "telegram-trigger-c",
+      "name": "Telegram Trigger",
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1,
+      "position": [240, 300],
+      "credentials": {
+        "telegramApi": { "name": "Fintrak Telegram Bot" }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "conditions": [
+            {
+              "leftValue": "={{ $json.message.chat.id.toString() }}",
+              "rightValue": "={{ $vars.YOUR_TELEGRAM_CHAT_ID }}",
+              "operator": { "type": "string", "operation": "equals" }
+            },
+            {
+              "leftValue": "={{ $json.message.text }}",
+              "rightValue": "/",
+              "operator": { "type": "string", "operation": "startsWith" }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "is-my-command",
+      "name": "Is My Command?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const text = $input.item.json.message?.text || '';\nconst cmd = text.split(' ')[0].toLowerCase();\nreturn [{ json: { ...$input.item.json, command: cmd } }];"
+      },
+      "id": "extract-command",
+      "name": "Extract Command",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [680, 240]
+    },
+    {
+      "parameters": {
+        "mode": "expression",
+        "output": "={{ $json.command }}",
+        "rules": {
+          "rules": [
+            { "outputKey": "/summary" },
+            { "outputKey": "/report" },
+            { "outputKey": "/search" }
+          ]
+        },
+        "fallbackOutput": "extra"
+      },
+      "id": "route-command",
+      "name": "Route Command",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [900, 240]
+    },
+    {
+      "parameters": {
+        "operation": "read",
+        "documentId": { "__rl": true, "value": "={{ $vars.GOOGLE_SHEET_ID }}", "mode": "id" },
+        "sheetName": { "__rl": true, "value": "Expenses", "mode": "name" },
+        "filters": {},
+        "options": {}
+      },
+      "id": "read-for-summary",
+      "name": "Read Expenses (Summary)",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.4,
+      "position": [1120, 120],
+      "credentials": {
+        "googleSheetsOAuth2Api": { "name": "Fintrak Google Sheets" }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const rows = $input.all();\nconst now = new Date();\nconst thisMonth = now.getMonth();\nconst thisYear = now.getFullYear();\n\nlet personalTotal = 0, businessTotal = 0;\nconst categoryTotals = {};\n\nfor (const row of rows) {\n  const r = row.json;\n  if (!r.Date || !r.Amount) continue;\n  const d = new Date(r.Date);\n  if (d.getMonth() !== thisMonth || d.getFullYear() !== thisYear) continue;\n  const amt = parseFloat(r.Amount) || 0;\n  if (r.Type === 'Business') businessTotal += amt;\n  else personalTotal += amt;\n  categoryTotals[r.Category] = (categoryTotals[r.Category] || 0) + amt;\n}\n\nconst monthName = now.toLocaleString('en-IN', { month: 'long', year: 'numeric' });\nconst sortedCats = Object.entries(categoryTotals).sort((a,b) => b[1]-a[1]).slice(0, 5);\nconst catLines = sortedCats.map(([cat, amt]) => `  ${cat}: ₹${amt.toFixed(0)}`).join('\\n');\n\nconst msg = `📊 *${monthName} Summary*\\n\\n👤 Personal: ₹${personalTotal.toFixed(0)}\\n💼 Business: ₹${businessTotal.toFixed(0)}\\n💰 Total: ₹${(personalTotal+businessTotal).toFixed(0)}\\n\\n*Top Categories:*\\n${catLines || '  No data yet'}`;\n\nreturn [{ json: { message: msg } }];"
+      },
+      "id": "build-summary",
+      "name": "Build Summary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1340, 120]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Telegram Trigger').item.json.message.chat.id }}",
+        "text": "={{ $json.message }}",
+        "additionalFields": { "parse_mode": "Markdown" }
+      },
+      "id": "reply-summary",
+      "name": "Reply Summary",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [1560, 120],
+      "credentials": {
+        "telegramApi": { "name": "Fintrak Telegram Bot" }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "read",
+        "documentId": { "__rl": true, "value": "={{ $vars.GOOGLE_SHEET_ID }}", "mode": "id" },
+        "sheetName": { "__rl": true, "value": "Expenses", "mode": "name" },
+        "filters": {},
+        "options": {}
+      },
+      "id": "read-for-report",
+      "name": "Read Expenses (Report)",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.4,
+      "position": [1120, 280],
+      "credentials": {
+        "googleSheetsOAuth2Api": { "name": "Fintrak Google Sheets" }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const rows = $input.all();\nconst now = new Date();\nconst thisMonth = now.getMonth();\nconst thisYear = now.getFullYear();\n\nconst catTotals = {};\nlet total = 0;\nfor (const row of rows) {\n  const r = row.json;\n  if (!r.Date || !r.Amount) continue;\n  const d = new Date(r.Date);\n  if (d.getMonth() !== thisMonth || d.getFullYear() !== thisYear) continue;\n  const amt = parseFloat(r.Amount) || 0;\n  const key = `${r.Category} (${r.Type})`;\n  catTotals[key] = (catTotals[key] || 0) + amt;\n  total += amt;\n}\n\nconst sorted = Object.entries(catTotals).sort((a,b) => b[1]-a[1]);\nconst lines = sorted.map(([cat, amt]) => `${cat}: ₹${amt.toFixed(0)}`).join('\\n');\nconst monthName = now.toLocaleString('en-IN', { month: 'long', year: 'numeric' });\n\nconst msg = `📋 *${monthName} Full Report*\\n\\n${lines || 'No expenses this month'}\\n\\n*Grand Total: ₹${total.toFixed(0)}*`;\nreturn [{ json: { message: msg } }];"
+      },
+      "id": "build-report",
+      "name": "Build Report",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1340, 280]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Telegram Trigger').item.json.message.chat.id }}",
+        "text": "={{ $json.message }}",
+        "additionalFields": { "parse_mode": "Markdown" }
+      },
+      "id": "reply-report",
+      "name": "Reply Report",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [1560, 280],
+      "credentials": {
+        "telegramApi": { "name": "Fintrak Telegram Bot" }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "read",
+        "documentId": { "__rl": true, "value": "={{ $vars.GOOGLE_SHEET_ID }}", "mode": "id" },
+        "sheetName": { "__rl": true, "value": "Expenses", "mode": "name" },
+        "filters": {},
+        "options": {}
+      },
+      "id": "read-for-search",
+      "name": "Read Expenses (Search)",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.4,
+      "position": [1120, 440],
+      "credentials": {
+        "googleSheetsOAuth2Api": { "name": "Fintrak Google Sheets" }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const rows = $input.all();\nconst cmdText = $('Telegram Trigger').item.json.message?.text || '';\nconst term = cmdText.replace('/search', '').trim().toLowerCase();\n\nif (!term) {\n  return [{ json: { message: '🔍 Usage: /search keyword\\nExample: /search starbucks' } }];\n}\n\nconst matches = rows\n  .map(r => r.json)\n  .filter(r => r.Merchant && (\n    r.Merchant.toLowerCase().includes(term) ||\n    (r.Notes || '').toLowerCase().includes(term) ||\n    (r.Category || '').toLowerCase().includes(term)\n  ))\n  .slice(-10)\n  .reverse();\n\nif (matches.length === 0) {\n  return [{ json: { message: `🔍 No results for \"${term}\"` } }];\n}\n\nconst lines = matches.map(r => `📅 ${r.Date} | ${r.Merchant} | ₹${r.Amount} | ${r.Category}`).join('\\n');\nreturn [{ json: { message: `🔍 *Results for \"${term}\":*\\n\\n${lines}` } }];"
+      },
+      "id": "build-search",
+      "name": "Build Search Results",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1340, 440]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Telegram Trigger').item.json.message.chat.id }}",
+        "text": "={{ $json.message }}",
+        "additionalFields": { "parse_mode": "Markdown" }
+      },
+      "id": "reply-search",
+      "name": "Reply Search",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [1560, 440],
+      "credentials": {
+        "telegramApi": { "name": "Fintrak Telegram Bot" }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Telegram Trigger').item.json.message.chat.id }}",
+        "text": "👋 *Welcome to Fintrak!*\n\n*Log expenses:*\n📸 Send a receipt photo → auto-extracted\n✍️ Type: `250 starbucks coffee`\n💼 Business: `b:500 vendor xyz`\n💳 Method first: `cash 300 lunch`\n\n*Commands:*\n/summary — this month totals\n/report — breakdown by category\n/search keyword — find expenses\n/help — show this message",
+        "additionalFields": { "parse_mode": "Markdown" }
+      },
+      "id": "reply-start-help",
+      "name": "Reply Start/Help",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [1120, 580],
+      "credentials": {
+        "telegramApi": { "name": "Fintrak Telegram Bot" }
+      }
+    }
+  ],
+  "connections": {
+    "Telegram Trigger": {
+      "main": [[{ "node": "Is My Command?", "type": "main", "index": 0 }]]
+    },
+    "Is My Command?": {
+      "main": [
+        [{ "node": "Extract Command", "type": "main", "index": 0 }],
+        []
+      ]
+    },
+    "Extract Command": {
+      "main": [[{ "node": "Route Command", "type": "main", "index": 0 }]]
+    },
+    "Route Command": {
+      "main": [
+        [{ "node": "Read Expenses (Summary)", "type": "main", "index": 0 }],
+        [{ "node": "Read Expenses (Report)", "type": "main", "index": 0 }],
+        [{ "node": "Read Expenses (Search)", "type": "main", "index": 0 }],
+        [{ "node": "Reply Start/Help", "type": "main", "index": 0 }]
+      ]
+    },
+    "Read Expenses (Summary)": {
+      "main": [[{ "node": "Build Summary", "type": "main", "index": 0 }]]
+    },
+    "Build Summary": {
+      "main": [[{ "node": "Reply Summary", "type": "main", "index": 0 }]]
+    },
+    "Read Expenses (Report)": {
+      "main": [[{ "node": "Build Report", "type": "main", "index": 0 }]]
+    },
+    "Build Report": {
+      "main": [[{ "node": "Reply Report", "type": "main", "index": 0 }]]
+    },
+    "Read Expenses (Search)": {
+      "main": [[{ "node": "Build Search Results", "type": "main", "index": 0 }]]
+    },
+    "Build Search Results": {
+      "main": [[{ "node": "Reply Search", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": { "executionOrder": "v1" }
+}
