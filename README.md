@@ -162,8 +162,12 @@ git clone https://github.com/rupal2k/fintrak.git ~/fintrak
 
 **Step 3 — Copy your Google credentials file to the phone**
 - Email the `google-credentials.json` file to yourself
-- Open it in Gmail on your phone → save to Downloads
-- The path will be: `/sdcard/Download/google-credentials.json`
+- Open it in Gmail on your phone → tap the attachment → **Save to Downloads**
+- In Termux, the path will be:
+  ```
+  /storage/emulated/0/Download/google-credentials.json
+  ```
+  > On older phones `/sdcard/Download/google-credentials.json` also works — it points to the same folder.
 
 **Step 4 — Run the Android setup wizard**
 ```bash

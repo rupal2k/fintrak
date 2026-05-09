@@ -180,7 +180,7 @@ Invoke-RestMethod -Uri "http://localhost:5678/rest/workflows" -Headers $headers
 
 **n8n data dir on Android:** `~/.n8n/` (same as desktop, but Termux home = `/data/data/com.termux/files/home/`)
 
-**Google JSON file path on Android:** User copies to phone storage. Accessible at `/sdcard/Download/filename.json` in Termux.
+**Google JSON file path on Android:** User copies to phone storage. Modern Android path: `/storage/emulated/0/Download/filename.json`. Older phones: `/sdcard/Download/filename.json` (symlink to same folder).
 
 **Battery exemption:** Android kills background processes without it. Users must set Termux → Battery → Unrestricted.
 

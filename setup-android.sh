@@ -212,7 +212,8 @@ else
     prompt_secret "[1/6] n8n admin password (min 8 chars)" 3 N8N_PASSWORD validate_password
 
     write_info "Tip: Copy your Google JSON file to phone storage first."
-    write_info "     Then drag it into Termux or use the path: /sdcard/Downloads/filename.json"
+    write_info "     Modern Android path: /storage/emulated/0/Download/filename.json"
+    write_info "     Older phones may use: /sdcard/Download/filename.json"
     while true; do
         read -r -p "[2/6] Path to Google service account JSON: " json_path
         json_path="${json_path/#\~/$HOME}"
