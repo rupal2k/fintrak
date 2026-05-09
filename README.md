@@ -140,6 +140,63 @@ Open the `fintrak` folder, then:
 chmod +x setup.sh && ./setup.sh
 ```
 
+### Android (run Fintrak on your phone — no computer needed)
+
+> **What this means:** Your Android phone becomes the server. Fintrak runs inside Termux — a Linux terminal app for Android. No Docker, no computer required. The bot works as long as Termux is running on your phone.
+
+**Step 1 — Install Termux**
+1. Install **Termux** from [F-Droid](https://f-droid.org/packages/com.termux/) — do **not** use the Play Store version (it is outdated)
+2. Open Termux
+
+**Step 2 — Download Fintrak**
+```bash
+pkg update && pkg install -y git
+git clone https://github.com/rupal2k/fintrak.git ~/fintrak
+```
+
+**Step 3 — Copy your Google credentials file to the phone**
+- Email the `google-credentials.json` file to yourself
+- Open it in Gmail on your phone → save to Downloads
+- The path will be: `/sdcard/Download/google-credentials.json`
+
+**Step 4 — Run the Android setup wizard**
+```bash
+cd ~/fintrak
+chmod +x setup-android.sh
+./setup-android.sh
+```
+
+The wizard installs n8n automatically and walks you through the same 6 questions as the desktop version.
+
+**Step 5 — Keep it running 24/7 (optional)**
+
+By default, Fintrak stops when Termux is closed. To auto-start on phone boot:
+1. Install **Termux:Boot** from [F-Droid](https://f-droid.org/packages/com.termux.boot/)
+2. Open Termux:Boot once (to activate it)
+3. In Termux, create the auto-start script:
+   ```bash
+   mkdir -p ~/.termux/boot
+   cat > ~/.termux/boot/start-fintrak.sh << 'EOF'
+   #!/data/data/com.termux/files/usr/bin/bash
+   source ~/fintrak/.env
+   N8N_BASIC_AUTH_ACTIVE=true N8N_BASIC_AUTH_USER=admin \
+   N8N_BASIC_AUTH_PASSWORD=$N8N_PASSWORD GENERIC_TIMEZONE=Asia/Kolkata \
+   nohup n8n start > ~/.n8n/fintrak.log 2>&1 &
+   echo $! > ~/.n8n/fintrak.pid
+   EOF
+   chmod +x ~/.termux/boot/start-fintrak.sh
+   ```
+4. In Android Settings → Apps → Termux → Battery → set to **Unrestricted**
+
+After this, Fintrak starts automatically every time your phone boots.
+
+**Useful commands (run in Termux):**
+```bash
+tail -f ~/.n8n/fintrak.log        # Watch live logs
+kill $(cat ~/.n8n/fintrak.pid)    # Stop Fintrak
+cd ~/fintrak && ./setup-android.sh  # Restart / recover
+```
+
 ---
 
 ## What the wizard does
@@ -269,7 +326,7 @@ No. The setup gives your bot your personal Telegram ID, so it only responds to m
 Nothing changes — the bot runs on your computer, not your phone. Just open Telegram on your new phone and find your bot.
 
 **Can I run this on my phone instead of a computer?**
-Fintrak needs to run on a computer (or a home server / VPS). Your phone just uses Telegram to send receipts.
+Yes — the Android setup (Termux) lets you run Fintrak entirely on your Android phone. See the Android section above. Your phone needs to stay on with Termux running; enable battery optimization exemption to prevent Android from killing it.
 
 **Does this work when my computer is off?**
 No. The bot only works when your computer is on and Docker is running. If you want it to run 24/7, you can move it to a cheap cloud server later (optional, not required for personal use).
