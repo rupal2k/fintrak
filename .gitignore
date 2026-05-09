@@ -16,8 +16,11 @@ npm-debug.log*
 Thumbs.db
 
 # Editor
-.vscode/settings.json
+.vscode/
 *.swp
+
+# AI planning artifacts (internal use only)
+docs/superpowers/
 
 # Google credentials (NEVER commit this)
 setup/google-credentials.json
