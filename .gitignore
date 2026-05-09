@@ -19,8 +19,9 @@ Thumbs.db
 .vscode/
 *.swp
 
-# AI planning artifacts (internal use only)
+# AI planning artifacts and Claude Code internals (internal use only)
 docs/superpowers/
+.claude/
 
 # Google credentials (NEVER commit this)
 setup/google-credentials.json
