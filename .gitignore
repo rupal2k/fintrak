@@ -24,3 +24,4 @@ docs/superpowers/
 
 # Google credentials (NEVER commit this)
 setup/google-credentials.json
+CLAUDE.md
