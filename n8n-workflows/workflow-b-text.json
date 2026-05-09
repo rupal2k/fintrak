@@ -2,18 +2,13 @@
   "name": "Fintrak B - Text Entry Processor",
   "nodes": [
     {
-      "parameters": {
-        "updates": ["message"],
-        "additionalFields": {}
-      },
+      "parameters": { "updates": ["message"], "additionalFields": {} },
       "id": "telegram-trigger-b",
       "name": "Telegram Trigger",
       "type": "n8n-nodes-base.telegramTrigger",
       "typeVersion": 1,
       "position": [240, 300],
-      "credentials": {
-        "telegramApi": { "name": "Fintrak Telegram Bot" }
-      }
+      "credentials": { "telegramApi": { "name": "Fintrak Telegram Bot" } }
     },
     {
       "parameters": {
@@ -65,7 +60,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const text = ($input.item.json.message?.text || '').trim();\n\n// Check business prefix\nconst forceBusiness = text.toLowerCase().startsWith('b:');\nconst cleanText = forceBusiness ? text.substring(2).trim() : text;\n\n// Extract payment method if first word matches known methods\nconst methodWords = ['cash','upi','card','neft','rtgs','cheque','gpay','paytm','phonepe'];\nconst words = cleanText.split(/\\s+/);\nlet paymentMethod = 'UPI';\nlet remaining = cleanText;\nif (methodWords.includes(words[0].toLowerCase())) {\n  const methodMap = { cash: 'Cash', upi: 'UPI', card: 'Card', neft: 'NEFT', rtgs: 'RTGS', cheque: 'Cheque', gpay: 'UPI', paytm: 'UPI', phonepe: 'UPI' };\n  paymentMethod = methodMap[words[0].toLowerCase()] || 'UPI';\n  remaining = words.slice(1).join(' ');\n}\n\n// Extract amount — first number found in remaining\nconst amountMatch = remaining.match(/([\\d,]+(?:\\.\\d{2})?)/);\nconst amount = amountMatch ? parseFloat(amountMatch[1].replace(/,/g, '')) : 0;\n\n// Everything after the amount is merchant + notes\nconst afterAmount = remaining.replace(amountMatch?.[0] || '', '').trim();\nconst afterWords = afterAmount.split(/\\s+/);\nconst merchant = afterWords.slice(0, 2).join(' ') || 'Unknown';\nconst notes = afterWords.slice(2).join(' ') || '';\n\nreturn [{ json: {\n  amount,\n  date: new Date().toISOString().split('T')[0],\n  merchant,\n  paymentMethod,\n  userNote: forceBusiness ? 'b:' + notes : notes,\n  forceBusiness,\n  rawText: text,\n  driveLink: '',\n  ocrSuccess: true\n} }];"
+        "jsCode": "const text = ($input.item.json.message?.text || '').trim();\n\n// Yesterday prefix: y:300 lunch\nconst isYesterday = /^y:/i.test(text);\nlet cleanText = isYesterday ? text.replace(/^y:/i, '').trim() : text;\n\n// Business prefix: b:500 vendor\nconst forceBusiness = /^b:/i.test(cleanText);\ncleanText = forceBusiness ? cleanText.replace(/^b:/i, '').trim() : cleanText;\n\n// Date\nconst now = new Date();\nconst yest = new Date(now);\nyest.setDate(yest.getDate() - 1);\nconst date = isYesterday ? yest.toISOString().split('T')[0] : now.toISOString().split('T')[0];\n\n// Payment method (first word)\nconst methodMap = {cash:'Cash',upi:'UPI',card:'Card',neft:'NEFT',rtgs:'RTGS',cheque:'Cheque',gpay:'UPI',paytm:'UPI',phonepe:'UPI',netbanking:'NEFT'};\nconst words = cleanText.split(/\\s+/);\nlet paymentMethod = 'UPI';\nlet remaining = cleanText;\nif (methodMap[words[0].toLowerCase()]) {\n  paymentMethod = methodMap[words[0].toLowerCase()];\n  remaining = words.slice(1).join(' ');\n}\n\n// Strip currency symbols (₹, $, €, £, ¥)\nremaining = remaining.replace(/^[\\u20B9$€£¥]/,'').trim();\n\n// Amount: supports 5k = 5000, commas 1,500, decimals\nconst kMatch = remaining.match(/(\\d[\\d,]*(?:\\.\\d+)?)\\s*k\\b/i);\nconst numMatch = remaining.match(/(\\d[\\d,]*(?:\\.\\d{1,2})?)/);\nlet amount = 0, amountStr = '';\nif (kMatch) {\n  amount = parseFloat(kMatch[1].replace(/,/g,'')) * 1000;\n  amountStr = kMatch[0];\n} else if (numMatch) {\n  amount = parseFloat(numMatch[1].replace(/,/g,''));\n  amountStr = numMatch[0];\n}\n\n// Merchant aliases (common shorthand)\nconst aliases = {\n  sbux:'Starbucks', starbux:'Starbucks', bucks:'Starbucks',\n  mcds:'McDonalds', mcd:'McDonalds',\n  swgy:'Swiggy', zmto:'Zomato',\n  amzn:'Amazon', fkrt:'Flipkart', flpkrt:'Flipkart',\n  dom:'Dominos', dominos:'Dominos',\n  bk:'Burger King', kfc:'KFC',\n  ola:'Ola Cab', uber:'Uber'\n};\n\nconst afterAmount = remaining.replace(amountStr, '').trim();\nconst afterWords = afterAmount.split(/\\s+/).filter(Boolean);\nconst rawMerchant = afterWords[0] || '';\nconst merchant = aliases[rawMerchant.toLowerCase()] ||\n  (rawMerchant ? rawMerchant.charAt(0).toUpperCase() + rawMerchant.slice(1) : 'Unknown');\nconst notes = afterWords.slice(1).join(' ') || '';\n\nreturn [{ json: {\n  amount, date, merchant, paymentMethod,\n  userNote: notes,\n  forceBusiness, isYesterday,\n  rawText: text, driveLink: '', ocrSuccess: true\n} }];"
       },
       "id": "parse-text",
       "name": "Parse Text Input",
@@ -75,7 +70,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const input = $input.item.json;\nconst text = (input.rawText + ' ' + input.merchant).toLowerCase();\nconst userNote = (input.userNote || '').toLowerCase();\nconst forceBusiness = input.forceBusiness;\n\nconst rules = [\n  { category: 'Food & Drink', type: 'Personal', keywords: ['zomato','swiggy','starbucks','cafe','restaurant','biryani','pizza','food','eat','dominos','mcdonald','kfc','burger','dine'] },\n  { category: 'Transport', type: 'Personal', keywords: ['uber','ola','rapido','petrol','fuel','toll','parking','auto','cab','rickshaw','metro'] },\n  { category: 'Shopping', type: 'Personal', keywords: ['amazon','flipkart','myntra','mall','store','shop','meesho','retail'] },\n  { category: 'Bills & Utilities', type: 'Personal', keywords: ['electricity','water','broadband','jio','airtel','bsnl','recharge','bill','internet','wifi'] },\n  { category: 'Medical', type: 'Personal', keywords: ['pharmacy','hospital','doctor','clinic','medicine','apollo','medplus','health'] },\n  { category: 'Business - Software', type: 'Business', keywords: ['aws','notion','slack','zoom','adobe','subscription','saas','github','figma'] },\n  { category: 'Business - Travel', type: 'Business', keywords: ['flight','hotel','train ticket','business travel','airport'] },\n  { category: 'Business - Meals', type: 'Business', keywords: ['client lunch','vendor meeting','team lunch','business meal'] },\n  { category: 'Vendor Payment', type: 'Business', keywords: ['vendor','supplier','contractor','invoice','advance'] },\n  { category: 'Cash', type: 'Personal', keywords: ['atm','cash withdrawal'] },\n];\n\nlet category = 'Other';\nlet type = 'Personal';\n\nfor (const rule of rules) {\n  if (rule.keywords.some(kw => text.includes(kw) || userNote.includes(kw))) {\n    category = rule.category;\n    type = rule.type;\n    break;\n  }\n}\n\nif (forceBusiness) type = 'Business';\n\nreturn [{ json: { ...input, category, type } }];"
+        "jsCode": "const input = $input.item.json;\nconst text = (input.rawText + ' ' + input.merchant).toLowerCase();\nconst userNote = (input.userNote || '').toLowerCase();\nconst forceBusiness = input.forceBusiness;\n\nconst rules = [\n  { category: 'Food & Drink',        type: 'Personal', keywords: ['zomato','swiggy','starbucks','cafe','restaurant','biryani','pizza','food','eat','dominos','mcdonald','kfc','burger','dine','lunch','dinner','breakfast','coffee','chai','tea'] },\n  { category: 'Transport',           type: 'Personal', keywords: ['uber','ola','rapido','petrol','fuel','toll','parking','auto','cab','rickshaw','metro','bus','train fare','ticket'] },\n  { category: 'Shopping',            type: 'Personal', keywords: ['amazon','flipkart','myntra','mall','store','shop','meesho','retail','ajio','snapdeal','clothes','apparel'] },\n  { category: 'Bills & Utilities',   type: 'Personal', keywords: ['electricity','water','broadband','jio','airtel','bsnl','recharge','bill','internet','wifi','gas cylinder','piped gas','rent','landlord'] },\n  { category: 'Medical',             type: 'Personal', keywords: ['pharmacy','hospital','doctor','clinic','medicine','apollo','medplus','health','dental','lab test','1mg','netmeds'] },\n  { category: 'Business - Software', type: 'Business', keywords: ['aws','google cloud','notion','slack','zoom','adobe','subscription','saas','github','figma','canva','digitalocean','heroku'] },\n  { category: 'Business - Travel',   type: 'Business', keywords: ['flight','hotel','train ticket','business travel','airport','business cab'] },\n  { category: 'Business - Meals',    type: 'Business', keywords: ['client lunch','vendor meeting','team lunch','business meal','office lunch','client dinner'] },\n  { category: 'Business - Supplies', type: 'Business', keywords: ['office supplies','stationery','equipment','printer','laptop','monitor'] },\n  { category: 'Vendor Payment',      type: 'Business', keywords: ['vendor','supplier','contractor','invoice','advance payment'] },\n  { category: 'Cash',                type: 'Personal', keywords: ['atm','cash withdrawal','cash advance'] },\n];\n\nlet category = 'Other';\nlet type = 'Personal';\nfor (const rule of rules) {\n  if (rule.keywords.some(kw => text.includes(kw) || userNote.includes(kw))) {\n    category = rule.category;\n    type = rule.type;\n    break;\n  }\n}\nif (forceBusiness) type = 'Business';\n\nreturn [{ json: { ...input, category, type } }];"
       },
       "id": "categorize-b",
       "name": "Categorize",
@@ -112,14 +107,12 @@
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.4,
       "position": [1340, 240],
-      "credentials": {
-        "googleSheetsOAuth2Api": { "name": "Fintrak Google Sheets" }
-      }
+      "credentials": { "googleSheetsOAuth2Api": { "name": "Fintrak Google Sheets" } }
     },
     {
       "parameters": {
         "chatId": "={{ $('Telegram Trigger').item.json.message.chat.id }}",
-        "text": "=✅ *Logged!*\n\n🏪 *{{ $('Categorize').item.json.merchant }}* — ₹{{ $('Categorize').item.json.amount }}\n📂 {{ $('Categorize').item.json.category }} | 🏷️ {{ $('Categorize').item.json.type }}",
+        "text": "=✅ *Logged!*\n\n🏪 *{{ $('Categorize').item.json.merchant }}* — ₹{{ $('Categorize').item.json.amount }}\n📂 {{ $('Categorize').item.json.category }} · 🏷️ {{ $('Categorize').item.json.type }} · 💳 {{ $('Categorize').item.json.paymentMethod }}\n📅 {{ $('Categorize').item.json.isYesterday ? 'Yesterday' : 'Today' }} ({{ $('Categorize').item.json.date }})\n\n_Tip: Start with_ `b:` _for Business · `y:` _for Yesterday · `5k` _for ₹5,000_",
         "additionalFields": { "parse_mode": "Markdown" }
       },
       "id": "reply-logged",
@@ -127,36 +120,16 @@
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
       "position": [1560, 240],
-      "credentials": {
-        "telegramApi": { "name": "Fintrak Telegram Bot" }
-      }
+      "credentials": { "telegramApi": { "name": "Fintrak Telegram Bot" } }
     }
   ],
   "connections": {
-    "Telegram Trigger": {
-      "main": [[{ "node": "Guard: Only My Chat", "type": "main", "index": 0 }]]
-    },
-    "Guard: Only My Chat": {
-      "main": [
-        [{ "node": "Is Text Entry?", "type": "main", "index": 0 }],
-        []
-      ]
-    },
-    "Is Text Entry?": {
-      "main": [
-        [{ "node": "Parse Text Input", "type": "main", "index": 0 }],
-        []
-      ]
-    },
-    "Parse Text Input": {
-      "main": [[{ "node": "Categorize", "type": "main", "index": 0 }]]
-    },
-    "Categorize": {
-      "main": [[{ "node": "Save to Sheets", "type": "main", "index": 0 }]]
-    },
-    "Save to Sheets": {
-      "main": [[{ "node": "Reply: Logged", "type": "main", "index": 0 }]]
-    }
+    "Telegram Trigger":    { "main": [[{ "node": "Guard: Only My Chat", "type": "main", "index": 0 }]] },
+    "Guard: Only My Chat": { "main": [[{ "node": "Is Text Entry?", "type": "main", "index": 0 }], []] },
+    "Is Text Entry?":      { "main": [[{ "node": "Parse Text Input", "type": "main", "index": 0 }], []] },
+    "Parse Text Input":    { "main": [[{ "node": "Categorize", "type": "main", "index": 0 }]] },
+    "Categorize":          { "main": [[{ "node": "Save to Sheets", "type": "main", "index": 0 }]] },
+    "Save to Sheets":      { "main": [[{ "node": "Reply: Logged", "type": "main", "index": 0 }]] }
   },
   "settings": { "executionOrder": "v1" }
 }

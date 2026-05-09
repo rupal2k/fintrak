@@ -2,18 +2,13 @@
   "name": "Fintrak C - Command Handler",
   "nodes": [
     {
-      "parameters": {
-        "updates": ["message"],
-        "additionalFields": {}
-      },
+      "parameters": { "updates": ["message"], "additionalFields": {} },
       "id": "telegram-trigger-c",
       "name": "Telegram Trigger",
       "type": "n8n-nodes-base.telegramTrigger",
       "typeVersion": 1,
       "position": [240, 300],
-      "credentials": {
-        "telegramApi": { "name": "Fintrak Telegram Bot" }
-      }
+      "credentials": { "telegramApi": { "name": "Fintrak Telegram Bot" } }
     },
     {
       "parameters": {
@@ -57,7 +52,12 @@
           "rules": [
             { "outputKey": "/summary" },
             { "outputKey": "/report" },
-            { "outputKey": "/search" }
+            { "outputKey": "/search" },
+            { "outputKey": "/today" },
+            { "outputKey": "/last" },
+            { "outputKey": "/week" },
+            { "outputKey": "/month" },
+            { "outputKey": "/undo" }
           ]
         },
         "fallbackOutput": "extra"
@@ -68,116 +68,106 @@
       "typeVersion": 3,
       "position": [900, 240]
     },
+
+    { "parameters": { "operation": "read", "documentId": { "__rl": true, "value": "={{ $vars.GOOGLE_SHEET_ID }}", "mode": "id" }, "sheetName": { "__rl": true, "value": "Expenses", "mode": "name" }, "filters": {}, "options": {} }, "id": "read-summary", "name": "Read (Summary)", "type": "n8n-nodes-base.googleSheets", "typeVersion": 4.4, "position": [1120, 60], "credentials": { "googleSheetsOAuth2Api": { "name": "Fintrak Google Sheets" } } },
+    { "parameters": { "operation": "read", "documentId": { "__rl": true, "value": "={{ $vars.GOOGLE_SHEET_ID }}", "mode": "id" }, "sheetName": { "__rl": true, "value": "Expenses", "mode": "name" }, "filters": {}, "options": {} }, "id": "read-report",  "name": "Read (Report)",  "type": "n8n-nodes-base.googleSheets", "typeVersion": 4.4, "position": [1120, 200], "credentials": { "googleSheetsOAuth2Api": { "name": "Fintrak Google Sheets" } } },
+    { "parameters": { "operation": "read", "documentId": { "__rl": true, "value": "={{ $vars.GOOGLE_SHEET_ID }}", "mode": "id" }, "sheetName": { "__rl": true, "value": "Expenses", "mode": "name" }, "filters": {}, "options": {} }, "id": "read-search",  "name": "Read (Search)",  "type": "n8n-nodes-base.googleSheets", "typeVersion": 4.4, "position": [1120, 340], "credentials": { "googleSheetsOAuth2Api": { "name": "Fintrak Google Sheets" } } },
+    { "parameters": { "operation": "read", "documentId": { "__rl": true, "value": "={{ $vars.GOOGLE_SHEET_ID }}", "mode": "id" }, "sheetName": { "__rl": true, "value": "Expenses", "mode": "name" }, "filters": {}, "options": {} }, "id": "read-today",   "name": "Read (Today)",   "type": "n8n-nodes-base.googleSheets", "typeVersion": 4.4, "position": [1120, 480], "credentials": { "googleSheetsOAuth2Api": { "name": "Fintrak Google Sheets" } } },
+    { "parameters": { "operation": "read", "documentId": { "__rl": true, "value": "={{ $vars.GOOGLE_SHEET_ID }}", "mode": "id" }, "sheetName": { "__rl": true, "value": "Expenses", "mode": "name" }, "filters": {}, "options": {} }, "id": "read-last",    "name": "Read (Last)",    "type": "n8n-nodes-base.googleSheets", "typeVersion": 4.4, "position": [1120, 620], "credentials": { "googleSheetsOAuth2Api": { "name": "Fintrak Google Sheets" } } },
+    { "parameters": { "operation": "read", "documentId": { "__rl": true, "value": "={{ $vars.GOOGLE_SHEET_ID }}", "mode": "id" }, "sheetName": { "__rl": true, "value": "Expenses", "mode": "name" }, "filters": {}, "options": {} }, "id": "read-week",    "name": "Read (Week)",    "type": "n8n-nodes-base.googleSheets", "typeVersion": 4.4, "position": [1120, 760], "credentials": { "googleSheetsOAuth2Api": { "name": "Fintrak Google Sheets" } } },
+    { "parameters": { "operation": "read", "documentId": { "__rl": true, "value": "={{ $vars.GOOGLE_SHEET_ID }}", "mode": "id" }, "sheetName": { "__rl": true, "value": "Expenses", "mode": "name" }, "filters": {}, "options": {} }, "id": "read-month",   "name": "Read (Month)",   "type": "n8n-nodes-base.googleSheets", "typeVersion": 4.4, "position": [1120, 900], "credentials": { "googleSheetsOAuth2Api": { "name": "Fintrak Google Sheets" } } },
+    { "parameters": { "operation": "read", "documentId": { "__rl": true, "value": "={{ $vars.GOOGLE_SHEET_ID }}", "mode": "id" }, "sheetName": { "__rl": true, "value": "Expenses", "mode": "name" }, "filters": {}, "options": {} }, "id": "read-undo",    "name": "Read (Undo)",    "type": "n8n-nodes-base.googleSheets", "typeVersion": 4.4, "position": [1120, 1040], "credentials": { "googleSheetsOAuth2Api": { "name": "Fintrak Google Sheets" } } },
+
     {
       "parameters": {
-        "operation": "read",
-        "documentId": { "__rl": true, "value": "={{ $vars.GOOGLE_SHEET_ID }}", "mode": "id" },
-        "sheetName": { "__rl": true, "value": "Expenses", "mode": "name" },
-        "filters": {},
-        "options": {}
-      },
-      "id": "read-for-summary",
-      "name": "Read Expenses (Summary)",
-      "type": "n8n-nodes-base.googleSheets",
-      "typeVersion": 4.4,
-      "position": [1120, 120],
-      "credentials": {
-        "googleSheetsOAuth2Api": { "name": "Fintrak Google Sheets" }
-      }
-    },
-    {
-      "parameters": {
-        "jsCode": "const rows = $input.all();\nconst now = new Date();\nconst thisMonth = now.getMonth();\nconst thisYear = now.getFullYear();\n\nlet personalTotal = 0, businessTotal = 0;\nconst categoryTotals = {};\n\nfor (const row of rows) {\n  const r = row.json;\n  if (!r.Date || !r.Amount) continue;\n  const d = new Date(r.Date);\n  if (d.getMonth() !== thisMonth || d.getFullYear() !== thisYear) continue;\n  const amt = parseFloat(r.Amount) || 0;\n  if (r.Type === 'Business') businessTotal += amt;\n  else personalTotal += amt;\n  categoryTotals[r.Category] = (categoryTotals[r.Category] || 0) + amt;\n}\n\nconst monthName = now.toLocaleString('en-IN', { month: 'long', year: 'numeric' });\nconst sortedCats = Object.entries(categoryTotals).sort((a,b) => b[1]-a[1]).slice(0, 5);\nconst catLines = sortedCats.map(([cat, amt]) => `  ${cat}: ₹${amt.toFixed(0)}`).join('\\n');\n\nconst msg = `📊 *${monthName} Summary*\\n\\n👤 Personal: ₹${personalTotal.toFixed(0)}\\n💼 Business: ₹${businessTotal.toFixed(0)}\\n💰 Total: ₹${(personalTotal+businessTotal).toFixed(0)}\\n\\n*Top Categories:*\\n${catLines || '  No data yet'}`;\n\nreturn [{ json: { message: msg } }];"
+        "jsCode": "const rows = $input.all();\nconst now = new Date();\nconst thisMonth = now.getMonth();\nconst thisYear = now.getFullYear();\nconst lastMonth = thisMonth === 0 ? 11 : thisMonth - 1;\nconst lastYear  = thisMonth === 0 ? thisYear - 1 : thisYear;\n\nlet personalThis = 0, businessThis = 0, totalLast = 0, countThis = 0;\nconst catTotals = {};\n\nfor (const row of rows) {\n  const r = row.json;\n  if (!r.Date || !r.Amount) continue;\n  const d = new Date(r.Date);\n  const amt = parseFloat(r.Amount) || 0;\n  if (amt <= 0) continue;\n  if (d.getMonth() === thisMonth && d.getFullYear() === thisYear) {\n    if (r.Type === 'Business') businessThis += amt; else personalThis += amt;\n    catTotals[r.Category] = (catTotals[r.Category] || 0) + amt;\n    countThis++;\n  } else if (d.getMonth() === lastMonth && d.getFullYear() === lastYear) {\n    totalLast += amt;\n  }\n}\n\nconst totalThis = personalThis + businessThis;\nconst monthName = now.toLocaleString('en-IN', { month: 'long', year: 'numeric' });\nconst lastMonthName = new Date(lastYear, lastMonth, 1).toLocaleString('en-IN', { month: 'short' });\n\n// Month-over-month comparison (inspired by expenses.app)\nlet comparison = '';\nif (totalLast > 0) {\n  const diff = totalThis - totalLast;\n  const pct = Math.round(Math.abs(diff / totalLast) * 100);\n  const arrow = diff >= 0 ? '\\u2191' : '\\u2193';\n  const sign = diff >= 0 ? '+' : '-';\n  comparison = `\\nvs ${lastMonthName}: ₹${totalLast.toFixed(0)} (${arrow}${pct}%)`;\n}\n\n// Top categories with mini bar\nconst sorted = Object.entries(catTotals).sort((a,b) => b[1]-a[1]).slice(0,5);\nconst catLines = sorted.map(([cat, amt]) => {\n  const pct = totalThis > 0 ? Math.round((amt/totalThis)*100) : 0;\n  const filled = Math.round(pct/10);\n  const bar = '\\u2588'.repeat(filled) + '\\u2591'.repeat(10 - filled);\n  return `${bar} ${cat}\\n  ₹${amt.toFixed(0)} (${pct}%)`;\n}).join('\\n');\n\nconst msg = `\\uD83D\\uDCCA *${monthName} Summary*\\n\\n${countThis} expense(s)\\n\\uD83D\\uDC64 Personal: ₹${personalThis.toFixed(0)}\\n\\uD83D\\uDCBC Business: ₹${businessThis.toFixed(0)}\\n\\uD83D\\uDCB0 Total: ₹${totalThis.toFixed(0)}${comparison}\\n\\n*Breakdown:*\\n${catLines || '  No expenses yet'}`;\nreturn [{ json: { message: msg } }];"
       },
       "id": "build-summary",
       "name": "Build Summary",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1340, 120]
+      "position": [1340, 60]
     },
     {
       "parameters": {
-        "chatId": "={{ $('Telegram Trigger').item.json.message.chat.id }}",
-        "text": "={{ $json.message }}",
-        "additionalFields": { "parse_mode": "Markdown" }
-      },
-      "id": "reply-summary",
-      "name": "Reply Summary",
-      "type": "n8n-nodes-base.telegram",
-      "typeVersion": 1.2,
-      "position": [1560, 120],
-      "credentials": {
-        "telegramApi": { "name": "Fintrak Telegram Bot" }
-      }
-    },
-    {
-      "parameters": {
-        "operation": "read",
-        "documentId": { "__rl": true, "value": "={{ $vars.GOOGLE_SHEET_ID }}", "mode": "id" },
-        "sheetName": { "__rl": true, "value": "Expenses", "mode": "name" },
-        "filters": {},
-        "options": {}
-      },
-      "id": "read-for-report",
-      "name": "Read Expenses (Report)",
-      "type": "n8n-nodes-base.googleSheets",
-      "typeVersion": 4.4,
-      "position": [1120, 280],
-      "credentials": {
-        "googleSheetsOAuth2Api": { "name": "Fintrak Google Sheets" }
-      }
-    },
-    {
-      "parameters": {
-        "jsCode": "const rows = $input.all();\nconst now = new Date();\nconst thisMonth = now.getMonth();\nconst thisYear = now.getFullYear();\n\nconst catTotals = {};\nlet total = 0;\nfor (const row of rows) {\n  const r = row.json;\n  if (!r.Date || !r.Amount) continue;\n  const d = new Date(r.Date);\n  if (d.getMonth() !== thisMonth || d.getFullYear() !== thisYear) continue;\n  const amt = parseFloat(r.Amount) || 0;\n  const key = `${r.Category} (${r.Type})`;\n  catTotals[key] = (catTotals[key] || 0) + amt;\n  total += amt;\n}\n\nconst sorted = Object.entries(catTotals).sort((a,b) => b[1]-a[1]);\nconst lines = sorted.map(([cat, amt]) => `${cat}: ₹${amt.toFixed(0)}`).join('\\n');\nconst monthName = now.toLocaleString('en-IN', { month: 'long', year: 'numeric' });\n\nconst msg = `📋 *${monthName} Full Report*\\n\\n${lines || 'No expenses this month'}\\n\\n*Grand Total: ₹${total.toFixed(0)}*`;\nreturn [{ json: { message: msg } }];"
+        "jsCode": "const rows = $input.all();\nconst now = new Date();\nconst thisMonth = now.getMonth();\nconst thisYear = now.getFullYear();\n\nconst catTotals = {};\nlet total = 0;\nfor (const row of rows) {\n  const r = row.json;\n  if (!r.Date || !r.Amount) continue;\n  const d = new Date(r.Date);\n  if (d.getMonth() !== thisMonth || d.getFullYear() !== thisYear) continue;\n  const amt = parseFloat(r.Amount) || 0;\n  if (amt <= 0) continue;\n  const key = `${r.Category} (${r.Type})`;\n  catTotals[key] = (catTotals[key] || 0) + amt;\n  total += amt;\n}\n\nconst sorted = Object.entries(catTotals).sort((a,b) => b[1]-a[1]);\nconst lines = sorted.map(([cat, amt]) => `${cat}: ₹${amt.toFixed(0)}`).join('\\n');\nconst monthName = now.toLocaleString('en-IN', { month: 'long', year: 'numeric' });\n\nconst msg = `\\uD83D\\uDCCB *${monthName} Full Report*\\n\\n${lines || 'No expenses this month'}\\n\\n*Grand Total: ₹${total.toFixed(0)}*`;\nreturn [{ json: { message: msg } }];"
       },
       "id": "build-report",
       "name": "Build Report",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1340, 280]
+      "position": [1340, 200]
     },
     {
       "parameters": {
-        "chatId": "={{ $('Telegram Trigger').item.json.message.chat.id }}",
-        "text": "={{ $json.message }}",
-        "additionalFields": { "parse_mode": "Markdown" }
-      },
-      "id": "reply-report",
-      "name": "Reply Report",
-      "type": "n8n-nodes-base.telegram",
-      "typeVersion": 1.2,
-      "position": [1560, 280],
-      "credentials": {
-        "telegramApi": { "name": "Fintrak Telegram Bot" }
-      }
-    },
-    {
-      "parameters": {
-        "operation": "read",
-        "documentId": { "__rl": true, "value": "={{ $vars.GOOGLE_SHEET_ID }}", "mode": "id" },
-        "sheetName": { "__rl": true, "value": "Expenses", "mode": "name" },
-        "filters": {},
-        "options": {}
-      },
-      "id": "read-for-search",
-      "name": "Read Expenses (Search)",
-      "type": "n8n-nodes-base.googleSheets",
-      "typeVersion": 4.4,
-      "position": [1120, 440],
-      "credentials": {
-        "googleSheetsOAuth2Api": { "name": "Fintrak Google Sheets" }
-      }
-    },
-    {
-      "parameters": {
-        "jsCode": "const rows = $input.all();\nconst cmdText = $('Telegram Trigger').item.json.message?.text || '';\nconst term = cmdText.replace('/search', '').trim().toLowerCase();\n\nif (!term) {\n  return [{ json: { message: '🔍 Usage: /search keyword\\nExample: /search starbucks' } }];\n}\n\nconst matches = rows\n  .map(r => r.json)\n  .filter(r => r.Merchant && (\n    r.Merchant.toLowerCase().includes(term) ||\n    (r.Notes || '').toLowerCase().includes(term) ||\n    (r.Category || '').toLowerCase().includes(term)\n  ))\n  .slice(-10)\n  .reverse();\n\nif (matches.length === 0) {\n  return [{ json: { message: `🔍 No results for \"${term}\"` } }];\n}\n\nconst lines = matches.map(r => `📅 ${r.Date} | ${r.Merchant} | ₹${r.Amount} | ${r.Category}`).join('\\n');\nreturn [{ json: { message: `🔍 *Results for \"${term}\":*\\n\\n${lines}` } }];"
+        "jsCode": "const rows = $input.all();\nconst cmdText = $('Telegram Trigger').item.json.message?.text || '';\nconst term = cmdText.replace('/search', '').trim().toLowerCase();\nif (!term) {\n  return [{ json: { message: '\\uD83D\\uDD0D Usage: /search keyword\\nExample: /search starbucks' } }];\n}\nconst matches = rows.map(r => r.json)\n  .filter(r => r.Merchant && (\n    r.Merchant.toLowerCase().includes(term) ||\n    (r.Notes || '').toLowerCase().includes(term) ||\n    (r.Category || '').toLowerCase().includes(term)\n  ))\n  .filter(r => parseFloat(r.Amount) > 0)\n  .slice(-10).reverse();\nif (matches.length === 0) {\n  return [{ json: { message: `\\uD83D\\uDD0D No results for \"${term}\"` } }];\n}\nconst lines = matches.map(r => `\\uD83D\\uDCC5 ${r.Date} | *${r.Merchant}* | ₹${parseFloat(r.Amount).toFixed(0)} | ${r.Category}`).join('\\n');\nreturn [{ json: { message: `\\uD83D\\uDD0D *Results for \"${term}\":*\\n\\n${lines}` } }];"
       },
       "id": "build-search",
-      "name": "Build Search Results",
+      "name": "Build Search",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1340, 440]
+      "position": [1340, 340]
+    },
+    {
+      "parameters": {
+        "jsCode": "const rows = $input.all();\nconst today = new Date().toISOString().split('T')[0];\nlet personal = 0, business = 0;\nconst items = [];\nconst catTotals = {};\nfor (const row of rows) {\n  const r = row.json;\n  if (r.Date !== today || !r.Amount) continue;\n  const amt = parseFloat(r.Amount) || 0;\n  if (amt <= 0) continue;\n  if (r.Type === 'Business') business += amt; else personal += amt;\n  catTotals[r.Category] = (catTotals[r.Category] || 0) + amt;\n  items.push(`• *${r.Merchant}* — ₹${amt.toFixed(0)} _${r.Category}_`);\n}\nconst total = personal + business;\nif (items.length === 0) {\n  return [{ json: { message: `\\uD83D\\uDCC5 *Today — ${today}*\\n\\n\\u2705 No expenses yet! Still time to save \\uD83D\\uDE04` } }];\n}\nconst msg = `\\uD83D\\uDCC5 *Today — ${today}*\\n\\n${items.join('\\n')}\\n\\n\\uD83D\\uDC64 Personal: ₹${personal.toFixed(0)}\\n\\uD83D\\uDCBC Business: ₹${business.toFixed(0)}\\n\\uD83D\\uDCB0 Total: ₹${total.toFixed(0)}`;\nreturn [{ json: { message: msg } }];"
+      },
+      "id": "build-today",
+      "name": "Build Today",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1340, 480]
+    },
+    {
+      "parameters": {
+        "jsCode": "const rows = $input.all();\nconst cmdText = $('Telegram Trigger').item.json.message?.text || '';\nconst nArg = parseInt(cmdText.replace('/last', '').trim()) || 5;\nconst n = Math.min(Math.max(nArg, 1), 20);\nconst recent = rows.map(r => r.json).filter(r => r.Date && r.Amount && parseFloat(r.Amount) > 0).slice(-n).reverse();\nif (recent.length === 0) {\n  return [{ json: { message: '\\uD83D\\uDCCB No expenses found. Start logging with a photo or text!' } }];\n}\nconst lines = recent.map((r, i) =>\n  `${i+1}. *${r.Merchant}* — ₹${parseFloat(r.Amount).toFixed(0)}\\n   \\uD83D\\uDCC2 ${r.Category} · \\uD83D\\uDCC5 ${r.Date}`\n).join('\\n\\n');\nconst msg = `\\uD83D\\uDCCB *Last ${recent.length} Expense(s):*\\n\\n${lines}\\n\\n_Use /undo to remove the most recent_`;\nreturn [{ json: { message: msg } }];"
+      },
+      "id": "build-last",
+      "name": "Build Last",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1340, 620]
+    },
+    {
+      "parameters": {
+        "jsCode": "const rows = $input.all();\nconst now = new Date();\nconst dow = now.getDay();\nconst startOfWeek = new Date(now);\nstartOfWeek.setDate(now.getDate() - dow);\nstartOfWeek.setHours(0,0,0,0);\nconst weekStart = startOfWeek.toISOString().split('T')[0];\n\nlet personal = 0, business = 0, count = 0;\nconst catTotals = {};\nconst dayTotals = {};\n\nfor (const row of rows) {\n  const r = row.json;\n  if (!r.Date || !r.Amount) continue;\n  const d = new Date(r.Date);\n  if (d < startOfWeek) continue;\n  const amt = parseFloat(r.Amount) || 0;\n  if (amt <= 0) continue;\n  if (r.Type === 'Business') business += amt; else personal += amt;\n  catTotals[r.Category] = (catTotals[r.Category] || 0) + amt;\n  dayTotals[r.Date] = (dayTotals[r.Date] || 0) + amt;\n  count++;\n}\n\nconst total = personal + business;\nconst sortedCats = Object.entries(catTotals).sort((a,b) => b[1]-a[1]).slice(0,4);\nconst catLines = sortedCats.map(([c, a]) => `  ${c}: ₹${a.toFixed(0)}`).join('\\n');\n\nconst msg = `\\uD83D\\uDCC5 *This Week (from ${weekStart})*\\n\\n${count} expense(s)\\n\\uD83D\\uDC64 Personal: ₹${personal.toFixed(0)}\\n\\uD83D\\uDCBC Business: ₹${business.toFixed(0)}\\n\\uD83D\\uDCB0 Total: ₹${total.toFixed(0)}\\n\\n*Top Categories:*\\n${catLines || '  No data'}\\n\\n_/summary for full month view_`;\nreturn [{ json: { message: msg } }];"
+      },
+      "id": "build-week",
+      "name": "Build Week",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1340, 760]
+    },
+    {
+      "parameters": {
+        "jsCode": "const rows = $input.all();\nconst now = new Date();\nconst cmdText = $('Telegram Trigger').item.json.message?.text || '';\nconst offset = parseInt(cmdText.replace('/month', '').trim()) || 0;\nconst target = new Date(now.getFullYear(), now.getMonth() + offset, 1);\nconst tMonth = target.getMonth();\nconst tYear  = target.getFullYear();\nconst pMonth = tMonth === 0 ? 11 : tMonth - 1;\nconst pYear  = tMonth === 0 ? tYear - 1 : tYear;\n\nlet personalT = 0, businessT = 0, totalP = 0;\nconst catTotals = {};\n\nfor (const row of rows) {\n  const r = row.json;\n  if (!r.Date || !r.Amount) continue;\n  const d = new Date(r.Date);\n  const amt = parseFloat(r.Amount) || 0;\n  if (amt <= 0) continue;\n  if (d.getMonth() === tMonth && d.getFullYear() === tYear) {\n    if (r.Type === 'Business') businessT += amt; else personalT += amt;\n    catTotals[r.Category] = (catTotals[r.Category] || 0) + amt;\n  } else if (d.getMonth() === pMonth && d.getFullYear() === pYear) {\n    totalP += amt;\n  }\n}\n\nconst totalT = personalT + businessT;\nconst monthName = target.toLocaleString('en-IN', { month: 'long', year: 'numeric' });\nconst prevName  = new Date(pYear, pMonth, 1).toLocaleString('en-IN', { month: 'long', year: 'numeric' });\n\nconst diff = totalT - totalP;\nconst pct = totalP > 0 ? Math.round(Math.abs(diff/totalP)*100) : 0;\nconst trend = totalP === 0 ? '' :\n  diff > 0 ? `\\u2191${pct}% more than ${prevName}` :\n  diff < 0 ? `\\u2193${pct}% less than ${prevName}` : `same as ${prevName}`;\n\nconst sortedCats = Object.entries(catTotals).sort((a,b) => b[1]-a[1]).slice(0,5);\nconst catLines = sortedCats.map(([c, a]) => `  ${c}: ₹${a.toFixed(0)}`).join('\\n');\nconst prevLine = totalP > 0 ? `\\nvs ${prevName}: ₹${totalP.toFixed(0)} (${trend})` : '';\n\nconst hint = offset === 0 ? '_/month -1 for last month_' : `_/month for current month_`;\nconst msg = `\\uD83D\\uDCCA *${monthName}*\\n\\n\\uD83D\\uDC64 Personal: ₹${personalT.toFixed(0)}\\n\\uD83D\\uDCBC Business: ₹${businessT.toFixed(0)}\\n\\uD83D\\uDCB0 Total: ₹${totalT.toFixed(0)}${prevLine}\\n\\n*Top Categories:*\\n${catLines || '  No data'}\\n\\n${hint}`;\nreturn [{ json: { message: msg } }];"
+      },
+      "id": "build-month",
+      "name": "Build Month",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1340, 900]
+    },
+    {
+      "parameters": {
+        "jsCode": "const rows = $input.all();\nconst dataRows = rows.map(r => r.json).filter(r => r.Date && r.Amount && parseFloat(r.Amount) > 0);\nif (dataRows.length === 0) {\n  return [{ json: { message: '\\uD83D\\uDDD1\\uFE0F Nothing to undo — no expenses found.' } }];\n}\nconst last = dataRows[dataRows.length - 1];\nconst sheetUrl = 'https://docs.google.com/spreadsheets/d/' + $vars.GOOGLE_SHEET_ID;\nconst msg = `\\uD83D\\uDDD1\\uFE0F *Last Expense (tap to remove):*\\n\\n\\uD83C\\uDFEA *${last.Merchant}* — ₹${parseFloat(last.Amount).toFixed(0)}\\n\\uD83D\\uDCC2 ${last.Category} · \\uD83D\\uDCB3 ${last.PaymentMethod || 'UPI'} · \\uD83D\\uDCC5 ${last.Date}\\n\\n[\\uD83D\\uDD17 Open Sheet to delete last row](${sheetUrl})\\n\\n_Alternatively, reply with the expense text again to re-log if removed by mistake._`;\nreturn [{ json: { message: msg } }];"
+      },
+      "id": "build-undo",
+      "name": "Build Undo",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1340, 1040]
+    },
+
+    {
+      "parameters": {
+        "chatId": "={{ $('Telegram Trigger').item.json.message.chat.id }}",
+        "text": "={{ $json.message }}",
+        "additionalFields": { "parse_mode": "Markdown" }
+      },
+      "id": "reply-summary", "name": "Reply Summary",
+      "type": "n8n-nodes-base.telegram", "typeVersion": 1.2, "position": [1560, 60],
+      "credentials": { "telegramApi": { "name": "Fintrak Telegram Bot" } }
     },
     {
       "parameters": {
@@ -185,70 +175,117 @@
         "text": "={{ $json.message }}",
         "additionalFields": { "parse_mode": "Markdown" }
       },
-      "id": "reply-search",
-      "name": "Reply Search",
-      "type": "n8n-nodes-base.telegram",
-      "typeVersion": 1.2,
-      "position": [1560, 440],
-      "credentials": {
-        "telegramApi": { "name": "Fintrak Telegram Bot" }
-      }
+      "id": "reply-report", "name": "Reply Report",
+      "type": "n8n-nodes-base.telegram", "typeVersion": 1.2, "position": [1560, 200],
+      "credentials": { "telegramApi": { "name": "Fintrak Telegram Bot" } }
     },
     {
       "parameters": {
         "chatId": "={{ $('Telegram Trigger').item.json.message.chat.id }}",
-        "text": "👋 *Welcome to Fintrak!*\n\n*Log expenses:*\n📸 Send a receipt photo → auto-extracted\n✍️ Type: `250 starbucks coffee`\n💼 Business: `b:500 vendor xyz`\n💳 Method first: `cash 300 lunch`\n\n*Commands:*\n/summary — this month totals\n/report — breakdown by category\n/search keyword — find expenses\n/help — show this message",
+        "text": "={{ $json.message }}",
         "additionalFields": { "parse_mode": "Markdown" }
       },
-      "id": "reply-start-help",
-      "name": "Reply Start/Help",
+      "id": "reply-search", "name": "Reply Search",
+      "type": "n8n-nodes-base.telegram", "typeVersion": 1.2, "position": [1560, 340],
+      "credentials": { "telegramApi": { "name": "Fintrak Telegram Bot" } }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Telegram Trigger').item.json.message.chat.id }}",
+        "text": "={{ $json.message }}",
+        "additionalFields": { "parse_mode": "Markdown" }
+      },
+      "id": "reply-today", "name": "Reply Today",
+      "type": "n8n-nodes-base.telegram", "typeVersion": 1.2, "position": [1560, 480],
+      "credentials": { "telegramApi": { "name": "Fintrak Telegram Bot" } }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Telegram Trigger').item.json.message.chat.id }}",
+        "text": "={{ $json.message }}",
+        "additionalFields": { "parse_mode": "Markdown" }
+      },
+      "id": "reply-last", "name": "Reply Last",
+      "type": "n8n-nodes-base.telegram", "typeVersion": 1.2, "position": [1560, 620],
+      "credentials": { "telegramApi": { "name": "Fintrak Telegram Bot" } }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Telegram Trigger').item.json.message.chat.id }}",
+        "text": "={{ $json.message }}",
+        "additionalFields": { "parse_mode": "Markdown" }
+      },
+      "id": "reply-week", "name": "Reply Week",
+      "type": "n8n-nodes-base.telegram", "typeVersion": 1.2, "position": [1560, 760],
+      "credentials": { "telegramApi": { "name": "Fintrak Telegram Bot" } }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Telegram Trigger').item.json.message.chat.id }}",
+        "text": "={{ $json.message }}",
+        "additionalFields": { "parse_mode": "Markdown" }
+      },
+      "id": "reply-month", "name": "Reply Month",
+      "type": "n8n-nodes-base.telegram", "typeVersion": 1.2, "position": [1560, 900],
+      "credentials": { "telegramApi": { "name": "Fintrak Telegram Bot" } }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Telegram Trigger').item.json.message.chat.id }}",
+        "text": "={{ $json.message }}",
+        "additionalFields": { "parse_mode": "Markdown", "disable_web_page_preview": true }
+      },
+      "id": "reply-undo", "name": "Reply Undo",
+      "type": "n8n-nodes-base.telegram", "typeVersion": 1.2, "position": [1560, 1040],
+      "credentials": { "telegramApi": { "name": "Fintrak Telegram Bot" } }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Telegram Trigger').item.json.message.chat.id }}",
+        "text": "👋 *Welcome to Fintrak!*\n\n*Log expenses:*\n📸 Photo → auto-extracted from receipt\n✍️ `250 starbucks coffee`\n💼 `b:500 vendor xyz` — Business\n💳 `cash 300 lunch` — method first\n📅 `y:200 dinner` — yesterday\n💰 `5k macbook` — shorthand for ₹5,000\n\n*View your spending:*\n/today — today's expenses\n/last — last 5 expenses\n/week — this week's total\n/summary — this month with comparison\n/report — full category breakdown\n/month — month-over-month view\n/month -1 — last month\n\n*Find & manage:*\n/search keyword — find any expense\n/undo — remove last expense\n/help — this message",
+        "additionalFields": { "parse_mode": "Markdown" }
+      },
+      "id": "reply-help",
+      "name": "Reply Help",
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
-      "position": [1120, 580],
-      "credentials": {
-        "telegramApi": { "name": "Fintrak Telegram Bot" }
-      }
+      "position": [1120, 1200],
+      "credentials": { "telegramApi": { "name": "Fintrak Telegram Bot" } }
     }
   ],
   "connections": {
-    "Telegram Trigger": {
-      "main": [[{ "node": "Is My Command?", "type": "main", "index": 0 }]]
-    },
-    "Is My Command?": {
-      "main": [
-        [{ "node": "Extract Command", "type": "main", "index": 0 }],
-        []
-      ]
-    },
-    "Extract Command": {
-      "main": [[{ "node": "Route Command", "type": "main", "index": 0 }]]
-    },
+    "Telegram Trigger":  { "main": [[{ "node": "Is My Command?", "type": "main", "index": 0 }]] },
+    "Is My Command?":    { "main": [[{ "node": "Extract Command", "type": "main", "index": 0 }], []] },
+    "Extract Command":   { "main": [[{ "node": "Route Command", "type": "main", "index": 0 }]] },
     "Route Command": {
       "main": [
-        [{ "node": "Read Expenses (Summary)", "type": "main", "index": 0 }],
-        [{ "node": "Read Expenses (Report)", "type": "main", "index": 0 }],
-        [{ "node": "Read Expenses (Search)", "type": "main", "index": 0 }],
-        [{ "node": "Reply Start/Help", "type": "main", "index": 0 }]
+        [{ "node": "Read (Summary)", "type": "main", "index": 0 }],
+        [{ "node": "Read (Report)",  "type": "main", "index": 0 }],
+        [{ "node": "Read (Search)",  "type": "main", "index": 0 }],
+        [{ "node": "Read (Today)",   "type": "main", "index": 0 }],
+        [{ "node": "Read (Last)",    "type": "main", "index": 0 }],
+        [{ "node": "Read (Week)",    "type": "main", "index": 0 }],
+        [{ "node": "Read (Month)",   "type": "main", "index": 0 }],
+        [{ "node": "Read (Undo)",    "type": "main", "index": 0 }],
+        [{ "node": "Reply Help",     "type": "main", "index": 0 }]
       ]
     },
-    "Read Expenses (Summary)": {
-      "main": [[{ "node": "Build Summary", "type": "main", "index": 0 }]]
-    },
-    "Build Summary": {
-      "main": [[{ "node": "Reply Summary", "type": "main", "index": 0 }]]
-    },
-    "Read Expenses (Report)": {
-      "main": [[{ "node": "Build Report", "type": "main", "index": 0 }]]
-    },
-    "Build Report": {
-      "main": [[{ "node": "Reply Report", "type": "main", "index": 0 }]]
-    },
-    "Read Expenses (Search)": {
-      "main": [[{ "node": "Build Search Results", "type": "main", "index": 0 }]]
-    },
-    "Build Search Results": {
-      "main": [[{ "node": "Reply Search", "type": "main", "index": 0 }]]
-    }
+    "Read (Summary)": { "main": [[{ "node": "Build Summary", "type": "main", "index": 0 }]] },
+    "Read (Report)":  { "main": [[{ "node": "Build Report",  "type": "main", "index": 0 }]] },
+    "Read (Search)":  { "main": [[{ "node": "Build Search",  "type": "main", "index": 0 }]] },
+    "Read (Today)":   { "main": [[{ "node": "Build Today",   "type": "main", "index": 0 }]] },
+    "Read (Last)":    { "main": [[{ "node": "Build Last",    "type": "main", "index": 0 }]] },
+    "Read (Week)":    { "main": [[{ "node": "Build Week",    "type": "main", "index": 0 }]] },
+    "Read (Month)":   { "main": [[{ "node": "Build Month",   "type": "main", "index": 0 }]] },
+    "Read (Undo)":    { "main": [[{ "node": "Build Undo",    "type": "main", "index": 0 }]] },
+    "Build Summary":  { "main": [[{ "node": "Reply Summary", "type": "main", "index": 0 }]] },
+    "Build Report":   { "main": [[{ "node": "Reply Report",  "type": "main", "index": 0 }]] },
+    "Build Search":   { "main": [[{ "node": "Reply Search",  "type": "main", "index": 0 }]] },
+    "Build Today":    { "main": [[{ "node": "Reply Today",   "type": "main", "index": 0 }]] },
+    "Build Last":     { "main": [[{ "node": "Reply Last",    "type": "main", "index": 0 }]] },
+    "Build Week":     { "main": [[{ "node": "Reply Week",    "type": "main", "index": 0 }]] },
+    "Build Month":    { "main": [[{ "node": "Reply Month",   "type": "main", "index": 0 }]] },
+    "Build Undo":     { "main": [[{ "node": "Reply Undo",    "type": "main", "index": 0 }]] }
   },
   "settings": { "executionOrder": "v1" }
 }

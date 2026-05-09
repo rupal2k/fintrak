@@ -3,14 +3,7 @@
   "nodes": [
     {
       "parameters": {
-        "rule": {
-          "interval": [
-            {
-              "field": "cronExpression",
-              "expression": "0 21 * * *"
-            }
-          ]
-        }
+        "rule": { "interval": [{ "field": "cronExpression", "expression": "0 21 * * *" }] }
       },
       "id": "cron-trigger",
       "name": "Daily 9PM Trigger",
@@ -31,13 +24,11 @@
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.4,
       "position": [460, 300],
-      "credentials": {
-        "googleSheetsOAuth2Api": { "name": "Fintrak Google Sheets" }
-      }
+      "credentials": { "googleSheetsOAuth2Api": { "name": "Fintrak Google Sheets" } }
     },
     {
       "parameters": {
-        "jsCode": "const rows = $input.all();\nconst today = new Date().toISOString().split('T')[0];\n\nlet personalToday = 0, businessToday = 0;\nlet countToday = 0;\nconst topItems = [];\n\nfor (const row of rows) {\n  const r = row.json;\n  if (r.Date !== today || !r.Amount) continue;\n  const amt = parseFloat(r.Amount) || 0;\n  if (r.Type === 'Business') businessToday += amt;\n  else personalToday += amt;\n  countToday++;\n  topItems.push(`  • ${r.Merchant} ₹${amt.toFixed(0)} (${r.Category})`);\n}\n\nconst totalToday = personalToday + businessToday;\n\nlet msg;\nif (countToday === 0) {\n  msg = `📊 *Daily Summary — ${today}*\\n\\n✅ No expenses logged today!`;\n} else {\n  const itemLines = topItems.slice(0, 5).join('\\n');\n  msg = `📊 *Daily Summary — ${today}*\\n\\n${countToday} expense(s)\\n👤 Personal: ₹${personalToday.toFixed(0)}\\n💼 Business: ₹${businessToday.toFixed(0)}\\n💰 Total: ₹${totalToday.toFixed(0)}\\n\\n*Today:*\\n${itemLines}`;\n}\n\nreturn [{ json: { message: msg } }];"
+        "jsCode": "const rows = $input.all();\nconst now = new Date();\nconst today = now.toISOString().split('T')[0];\nconst yest = new Date(now);\nyest.setDate(yest.getDate() - 1);\nconst yesterdayStr = yest.toISOString().split('T')[0];\n\nlet personalToday = 0, businessToday = 0;\nlet totalYesterday = 0;\nlet countToday = 0;\nconst catTotals = {};\nconst topItems = [];\n\nfor (const row of rows) {\n  const r = row.json;\n  if (!r.Amount) continue;\n  const amt = parseFloat(r.Amount) || 0;\n  if (amt <= 0) continue;\n\n  if (r.Date === today) {\n    if (r.Type === 'Business') businessToday += amt;\n    else personalToday += amt;\n    countToday++;\n    catTotals[r.Category] = (catTotals[r.Category] || 0) + amt;\n    topItems.push(`• ${r.Merchant} ₹${amt.toFixed(0)} (${r.Category})`);\n  } else if (r.Date === yesterdayStr) {\n    totalYesterday += amt;\n  }\n}\n\nconst totalToday = personalToday + businessToday;\n\n// Yesterday comparison\nlet comparison = '';\nif (totalYesterday > 0) {\n  const diff = totalToday - totalYesterday;\n  const pct = Math.round(Math.abs(diff / totalYesterday) * 100);\n  const arrow = diff >= 0 ? '\\u2191' : '\\u2193';\n  comparison = `\\nvs yesterday ₹${totalYesterday.toFixed(0)} (${arrow}${pct}%)`;\n}\n\n// Monthly running total\nconst thisMonth = now.getMonth();\nconst thisYear = now.getFullYear();\nlet monthTotal = 0;\nfor (const row of rows) {\n  const r = row.json;\n  if (!r.Date || !r.Amount) continue;\n  const d = new Date(r.Date);\n  if (d.getMonth() === thisMonth && d.getFullYear() === thisYear) {\n    monthTotal += parseFloat(r.Amount) || 0;\n  }\n}\nconst monthName = now.toLocaleString('en-IN', { month: 'long' });\n\nlet msg;\nif (countToday === 0) {\n  const noSpend = totalYesterday > 0 ? `\\nYesterday: ₹${totalYesterday.toFixed(0)}` : '';\n  msg = `\\uD83D\\uDCCA *Daily Summary — ${today}*\\n\\n\\u2705 No expenses today!${noSpend}\\n\\n${monthName} total so far: ₹${monthTotal.toFixed(0)}`;\n} else {\n  const itemLines = topItems.slice(0, 5).join('\\n');\n  const moreNote = topItems.length > 5 ? `\\n_...and ${topItems.length - 5} more_` : '';\n  msg = `\\uD83D\\uDCCA *Daily Summary — ${today}*\\n\\n${countToday} expense(s)\\n\\uD83D\\uDC64 Personal: ₹${personalToday.toFixed(0)}\\n\\uD83D\\uDCBC Business: ₹${businessToday.toFixed(0)}\\n\\uD83D\\uDCB0 Total: ₹${totalToday.toFixed(0)}${comparison}\\n\\n*Today:*\\n${itemLines}${moreNote}\\n\\n${monthName} total: ₹${monthTotal.toFixed(0)}`;\n}\n\nreturn [{ json: { message: msg } }];"
       },
       "id": "build-daily",
       "name": "Build Daily Summary",
@@ -56,21 +47,13 @@
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
       "position": [900, 300],
-      "credentials": {
-        "telegramApi": { "name": "Fintrak Telegram Bot" }
-      }
+      "credentials": { "telegramApi": { "name": "Fintrak Telegram Bot" } }
     }
   ],
   "connections": {
-    "Daily 9PM Trigger": {
-      "main": [[{ "node": "Read Expenses", "type": "main", "index": 0 }]]
-    },
-    "Read Expenses": {
-      "main": [[{ "node": "Build Daily Summary", "type": "main", "index": 0 }]]
-    },
-    "Build Daily Summary": {
-      "main": [[{ "node": "Send Daily Summary", "type": "main", "index": 0 }]]
-    }
+    "Daily 9PM Trigger":  { "main": [[{ "node": "Read Expenses", "type": "main", "index": 0 }]] },
+    "Read Expenses":      { "main": [[{ "node": "Build Daily Summary", "type": "main", "index": 0 }]] },
+    "Build Daily Summary":{ "main": [[{ "node": "Send Daily Summary", "type": "main", "index": 0 }]] }
   },
   "settings": { "executionOrder": "v1" }
 }
