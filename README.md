@@ -16,9 +16,15 @@ No monthly fees. No app to buy. Works on any phone. Your data stays in your own 
 | Send a receipt photo to your bot | Reads the amount, merchant, date → saves to Google Sheet |
 | Type `250 starbucks coffee` | Logs ₹250 under Food & Drink → Personal |
 | Type `b:500 vendor payment` | Logs ₹500 as Business expense |
-| Send `/summary` | Replies with this month's totals |
+| Type `y:300 auto` | Logs ₹300 under yesterday's date |
+| Type `5k swgy dinner` | Logs ₹5,000 at Swiggy — `k` means × 1,000 |
+| Send `/summary` | This month's totals + % change vs last month |
+| Send `/today` | Itemized list of everything you spent today |
+| Send `/last 10` | Your last 10 expenses |
+| Send `/week` | This week's spending by category |
 | Send `/report` | Full breakdown by category |
-| Do nothing at 9 PM | Bot sends you today's spending summary |
+| Send `/undo` | Shows your last expense + link to edit it |
+| Do nothing at 9 PM | Bot sends today's summary + vs-yesterday comparison |
 
 ---
 
@@ -254,8 +260,21 @@ amount merchant notes
 | `b:500 vendor payment abc ltd` | ₹500 · Vendor Payment · Business |
 | `1200 electricity bill` | ₹1200 · Bills & Utilities · Personal |
 | `cash 300 auto rickshaw` | ₹300 · Transport · Cash payment |
+| `y:450 sbux latte` | ₹450 · Starbucks · **yesterday's date** |
+| `5k amzn headphones` | ₹5,000 · Amazon · Shopping |
 
-> **Tip:** Start with `b:` to mark an expense as Business. Everything else is Personal by default.
+**Shortcuts you can use:**
+
+| Shortcut | What it does |
+|---------|-------------|
+| `b:` at the start | Marks the expense as Business |
+| `y:` at the start | Logs to yesterday instead of today |
+| `5k` | Means ₹5,000 — `k` multiplies by 1,000 |
+| `₹`, `$`, `€` | Currency symbols are stripped automatically |
+| `sbux` | Starbucks · `swgy` = Swiggy · `zmto` = Zomato |
+| `amzn` | Amazon · `mcds` = McDonalds · `uber` = Uber |
+
+> **Tip:** Shortcuts can be combined — `b:y:2k vendor` logs ₹2,000 as a Business expense for yesterday.
 
 ### Check your spending
 
@@ -263,16 +282,34 @@ Send these commands to your bot:
 
 | Command | What you get |
 |---------|-------------|
-| `/summary` | This month's total — Personal, Business, Grand total |
-| `/report` | Breakdown by category (Food, Transport, Bills, etc.) |
+| `/summary` | This month's totals (Personal + Business) with % change vs last month |
+| `/today` | Every expense logged today, itemized |
+| `/last` | Your last 5 expenses — use `/last 10` for more |
+| `/week` | This week's total, broken down by top categories |
+| `/month` | This month in detail — use `/month -1` for last month |
+| `/report` | Full breakdown by category for this month |
 | `/search coffee` | All expenses matching "coffee" |
-| `/help` | Shows all available commands |
+| `/undo` | Shows your most recent expense + a link to edit it in Google Sheets |
+| `/help` | Shows all available commands and shortcuts |
 
 ### Daily summary
 
 Every evening at **9:00 PM**, your bot automatically sends:
 ```
-📊 Today: Personal ₹450 | Business ₹0 | Total ₹450
+📊 Daily Summary — 2026-05-09
+
+3 expense(s)
+👤 Personal: ₹650
+💼 Business: ₹0
+💰 Total: ₹650
+vs yesterday ₹450 (↑44%)
+
+Today:
+• Starbucks ₹250 (Food & Drink)
+• Auto ₹100 (Transport)
+• Electricity ₹300 (Bills & Utilities)
+
+May total: ₹4,200
 ```
 
 ---
